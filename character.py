@@ -203,3 +203,47 @@ class Character:
             writer = csv.DictWriter(file, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(stats)
+
+    @staticmethod
+    async def display_character_stats_lvl(
+        ctx, char_name, server_id, stats_message=None
+    ):
+        try:
+            # Construct directory path based on server ID
+            server_dir = f"server_{server_id}"
+            # Construct the full file path
+            filepath = os.path.join(server_dir, f"{char_name}_stats.csv")
+            # Open the CSV file
+            with open(filepath, newline="") as file:
+                # Create a CSV DictReader
+                reader = csv.DictReader(file)
+                # Initialize a list to store stats
+                stats = []
+                # Iterate through each row in the CSV
+                for row in reader:
+                    # Get the modifier and convert to int
+                    modifier = int(row["Modifier"])
+                    # Check if modifier is greater than or equal to 1
+                    if modifier >= 1:
+                        modifier_str = f"+{modifier}"
+                    else:
+                        modifier_str = str(modifier)
+                    # Append attribute, value, and modified modifier to stats list
+                    stats.append([row["Attribute"], row["Value"], modifier_str])
+                # Define headers for the tabulated output
+                headers = ["Attribute", "Value", "Modifier"]
+                # Generate a tabulated representation of the stats
+                stats_table = tabulate(stats, headers=headers, tablefmt="grid")
+
+            # Return the tabulated stats data
+            if stats_message:
+                await stats_message.edit(content=f"```{stats_table}```")
+                return stats_message
+            # Otherwise, send the stats table message to the Discord channel
+            else:
+                stats_message = await ctx.send(f"```{stats_table}```")
+                return stats_message
+
+        except Exception as e:
+            # Raise an exception if an error occurs
+            raise RuntimeError(f"An error occurred: {e}")

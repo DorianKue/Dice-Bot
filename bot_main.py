@@ -45,6 +45,8 @@ class CustomHelpCommand(commands.DefaultHelpCommand):
             description="`Prefix`:\n"
             "You can either use `!` or `/` for commands.\n"
             "\n"
+            "**`❗Important❗`**: If you use the same name as someone else when creating a character, the previous character will be overwritten for now!\n"
+            "\n"
             "**Available commands:**",  # Description of the embed
             color=discord.Color.blue(),  # Color of the embed
         )
@@ -81,14 +83,14 @@ class CustomHelpCommand(commands.DefaultHelpCommand):
         # Add a field for showing created character stats
         embed.add_field(
             name="Showing created character stats:",  # Title of the field
-            value="`!stats Name` - where `Name` is the name of your character (Case sensitive!). Example: `!stats bob`",  # Value of the field
+            value="`!stats Name` - where `Name` is the name of your character. Example: `!stats bob`",  # Value of the field
             inline=False,  # Display the field in a new line
         )
 
         # Add a field for deleting a character savefile
         embed.add_field(
             name="Remove a character stat savefile:",  # Title of the field
-            value="`!rm Name` - where `Name` is the name of your character (Case sensitive!). \nExample: `!rm bob`\n"
+            value="`!rm Name` - where `Name` is the name of your character. \nExample: `!rm bob`\n"
             "Deleting a savefile is restricted to the character's creator or individuals with admin privileges.",  # Value of the field
             inline=False,  # Display the field in a new line
         )
@@ -186,34 +188,75 @@ async def update_commands():
 
 @bot.command()
 async def lvl(ctx, *, char_name):
-    """
-    Command to manage character attributes.
-
-    Args:
-        ctx (discord.ext.commands.Context): The context of the command.
-        char_name (str): The name of the character.
-
-    Raises:
-        Exception: If an error occurs during the execution of the command.
-    """
     try:
-        char_name = char_name.lower()  # Convert the character name to lowercase
-        # Call the function to display character stats
-        await Character.display_character_stats(ctx, char_name, ctx.guild.id)
+        char_name = char_name.lower()
+
+        # Check if the user is the creator of the character or has admin permissions
+        creator_id = await get_character_creator_id(char_name, ctx.guild.id)
+        if (
+            ctx.author.id != creator_id
+            and not ctx.author.guild_permissions.administrator
+        ):
+            await ctx.send("You are not authorized to level up this character.", ephemeral=True)
+            return
+
+        # Retrieve the stats message if it already exists
+        stats_message = None  # Initialize stats_message
+        # Retrieve stats message by searching through the channel's history
+        async for message in ctx.channel.history(limit=2):
+            if message.author == ctx.guild.me and message.embeds:
+                # Assuming the stats table is sent as an embed
+                if "Character's Stats" in message.embeds[0].title:
+                    stats_message = message
+                    break
+
+        # Display character stats and update the existing stats message if available
+        stats_message = await Character.display_character_stats_lvl(
+            ctx, char_name, ctx.guild.id, stats_message
+        )
 
         # Create an instance of MyView and send the message with the view
-        view = MyView(
-            ctx, char_name
-        )  # Creating a view instance for managing attributes
-        message = await ctx.send(
+        view = MyView(ctx, char_name, stats_message)
+        buttons_message = await ctx.send(
             "Select which attribute you want to increase:", view=view
-        )  # Sending a message with the view
-        view.message = message  # Storing the message in the view for later reference
+        )
+
+        # Update the MyView instance with the buttons message
+        view.message = buttons_message
 
     except Exception as e:
-        await ctx.send(
-            f"An error occurred: {e}"
-        )  # Sending an error message if an exception occurs
+        await ctx.send(f"An error occurred: {e}")
+
+
+# Helper function to get the ID of the character creator
+async def get_character_creator_id(char_name, server_id):
+    """
+    Get the ID of the user who created the character.
+
+    Args:
+        char_name (str): The name of the character.
+        server_id (int): The ID of the server where the character belongs.
+
+    Returns:
+        int: The ID of the user who created the character.
+    """
+    # Construct directory path based on server ID
+    server_dir = f"server_{server_id}"
+    # Construct the full file path
+    filepath = os.path.join(server_dir, f"{char_name}_stats.csv")
+
+    # Check if the character's stats file exists
+    if not os.path.isfile(filepath):
+        return None
+
+    # Load the creator ID from the CSV file
+    with open(filepath, newline="") as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            if row["Name"] == char_name:
+                creator_id = int(row.get("CreatorID", 0))
+                return creator_id
+    return None
 
 
 @bot.command(name="roll")
