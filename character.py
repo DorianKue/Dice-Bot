@@ -167,6 +167,8 @@ class Character:
                 message = await ctx.send(f"```{stats_table}```")
                 # Return the message object
                 return message
+        except FileNotFoundError:
+            await ctx.send(f"'{char_name}' savefile not found.")
         except Exception as e:
             # Send error message if an exception occurs
             await ctx.send(f"An error occurred: {e}")

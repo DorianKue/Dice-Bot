@@ -95,6 +95,13 @@ class CustomHelpCommand(commands.DefaultHelpCommand):
             inline=False,  # Display the field in a new line
         )
 
+        # Add a field for showing all characters
+        embed.add_field(
+            name="Show all saved characters:",  # Title of the field
+            value="`!showall`",  # Value of the field
+            inline=False,  # Display the field in a new line
+        )
+
         # Iterate through each command and add its name and description to the embed
         for cog, commands_list in mapping.items():
             if cog:  # Check if the command belongs to a cog
@@ -187,9 +194,38 @@ async def update_commands():
 
 
 @bot.command()
+async def showall(ctx):
+    """
+    Display all saved characters for the server.
+
+    Args:
+        ctx (discord.ext.commands.Context): The context object representing the invocation context.
+    """
+    try:
+        # Construct directory path based on server ID
+        server_dir = f"server_{ctx.guild.id}"
+        # Get a list of files in the server directory
+        files = os.listdir(server_dir)
+        # Extract character names from filenames
+        char_names = [filename.split("_stats.csv")[0] for filename in files]
+        # Format the character names with bullet points and new lines
+        char_list = "\n".join([f"• {name}" for name in char_names])
+        # Send the list of character names as a message
+        if len(char_list) == 0:
+            await ctx.send("No characters found")
+        else:
+            await ctx.send(f"**`Saved characters`**:\n{char_list}")
+    except FileNotFoundError:
+        await ctx.send("No saves yet")
+    except Exception as e:
+        # Send an error message if an exception occurs
+        await ctx.send(f"An error occurred: {e}")
+
+
+@bot.command()
 async def lvl(ctx, *, char_name):
     try:
-        char_name = char_name.lower()
+        # char_name = char_name.lower()
 
         # Check if the user is the creator of the character or has admin permissions
         creator_id = await get_character_creator_id(char_name, ctx.guild.id)
@@ -197,7 +233,9 @@ async def lvl(ctx, *, char_name):
             ctx.author.id != creator_id
             and not ctx.author.guild_permissions.administrator
         ):
-            await ctx.send("You are not authorized to level up this character.", ephemeral=True)
+            await ctx.send(
+                "You are not authorized to level up this character.", ephemeral=True
+            )
             return
 
         # Retrieve the stats message if it already exists
@@ -224,6 +262,8 @@ async def lvl(ctx, *, char_name):
         # Update the MyView instance with the buttons message
         view.message = buttons_message
 
+    except RuntimeError:
+        await ctx.send(f"'{char_name}' savefile not found.")
     except Exception as e:
         await ctx.send(f"An error occurred: {e}")
 
@@ -380,7 +420,7 @@ async def stats(ctx, *, name: str):
         name (str): The name of the character.
     """
     try:
-        name = name.lower()
+        # name = name.lower()
 
         # Define a wrapper function to pass arguments to display_character_stats
         async def display_character_stats_wrapper(
@@ -390,6 +430,8 @@ async def stats(ctx, *, name: str):
 
         # Call the wrapper function to display character stats
         await display_character_stats_wrapper(ctx)
+    except FileNotFoundError:
+        await ctx.send(f"'{name}' savefile not found.")
     except Exception as e:
         await ctx.send(f"An error occurred: {e}")
 
@@ -404,7 +446,7 @@ async def rm(ctx, *, name: str):
         name (str): The name of the character whose stats file needs to be removed.
     """
     try:
-        name = name.lower()
+        # name = name.lower()
         # Construct filepath for the character's stats file
         server_dir = f"server_{ctx.guild.id}"  # Construct server directory name based on guild ID
         filename = f"{name}_stats.csv"  # Construct filename based on character name
@@ -415,7 +457,7 @@ async def rm(ctx, *, name: str):
         # Check if the character's stats file exists
         if not os.path.isfile(filepath):  # Check if filepath points to a file
             await ctx.send(
-                f"Stats file '{filename}' not found."
+                f"'{name}' savefile not found."
             )  # Send error message if file doesn't exist
             return
 
@@ -468,6 +510,8 @@ async def rm(ctx, *, name: str):
         await ctx.send(
             "Timed out. Deletion canceled."
         )  # Send message if deletion times out
+    except RuntimeError:
+        await ctx.send(f"'{name}' savefile not found.")
     except Exception as e:  # Handle other exceptions
         await ctx.send(
             f"An error occurred: {e}"
