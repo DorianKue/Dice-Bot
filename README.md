@@ -69,6 +69,7 @@ python bot_main.py
 - **Creating Characters**: Use the `!roll_char` command to roll stats for a character. Example: `!roll_char 4d6`.
 - **Displaying Character Stats**: Use the `!stats` command to display character stats. Example: `!stats Bob`.
 - **Removing Character Savefile**: Use the `!rm` command to remove a character savefile. Example: `!rm Bob`.
+- **Level up Characters**: Use the !lvl command to add 2 attribute points of your choosing to a character. Example: `!lvl Bob`.
 
 ### Prefix
 
