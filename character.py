@@ -122,7 +122,9 @@ class Character:
             await ctx.send("Character stats have been saved.")
         except Exception as e:
             # Send error message if an exception occurs
-            await ctx.send(f"An error occurred while trying to save: {e}", ephemeral=True)
+            await ctx.send(
+                f"An error occurred while trying to save: {e}", ephemeral=True
+            )
 
     @staticmethod
     async def display_character_stats(ctx, char_name, server_id):
@@ -208,7 +210,11 @@ class Character:
 
     @staticmethod
     async def display_character_stats_lvl(
-        ctx, char_name, server_id, stats_message=None
+        ctx,
+        char_name,
+        server_id,
+        stats_message=None,
+        lvl_text="",
     ):
         try:
             # Construct directory path based on server ID
@@ -237,13 +243,14 @@ class Character:
                 # Generate a tabulated representation of the stats
                 stats_table = tabulate(stats, headers=headers, tablefmt="grid")
 
+            full_msg = f"{lvl_text}\n```{stats_table}```"
             # Return the tabulated stats data
             if stats_message:
-                await stats_message.edit(content=f"```{stats_table}```")
+                await stats_message.edit(content=full_msg)
                 return stats_message
             # Otherwise, send the stats table message to the Discord channel
             else:
-                stats_message = await ctx.send(f"```{stats_table}```")
+                stats_message = await ctx.send(full_msg)
                 return stats_message
 
         except Exception as e:

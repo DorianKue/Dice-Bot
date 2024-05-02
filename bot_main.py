@@ -14,6 +14,8 @@ import asyncio  # Import asyncio module for asynchronous programming
 import re  # Import re module to use regular expressions
 from character import Character  # Import the Character class from character.py
 from lvl_buttons import MyView
+from help import CustomHelpCommand
+
 
 # Load environment variables from the .env file
 load_dotenv()
@@ -29,103 +31,21 @@ client = Client(
 )  # Initialize a Discord client with the specified intent
 
 
-class CustomHelpCommand(commands.DefaultHelpCommand):
-    """Custom help command for displaying bot commands."""
-
-    async def send_bot_help(self, mapping):
-        """
-        Send help message for the bot.
-
-        Args:
-            mapping (dict): Mapping of cogs to their commands.
-        """
-        # Create an Embed instance for formatting the help message
-        embed = discord.Embed(
-            title="Command Help",  # Title of the embed
-            description="`Prefix`:\n"
-            "You can either use `!` or `/` for commands.\n"
-            "\n"
-            "**`❗Important❗`**: If you use the same name as someone else when creating a character, the previous character will be overwritten for now!\n"
-            "\n"
-            "**Available commands:**",  # Description of the embed
-            color=discord.Color.blue(),  # Color of the embed
-        )
-
-        # Add a field for rolling dice
-        embed.add_field(
-            name="Rolling dice:",  # Title of the field
-            value="`!roll XdY` - where X is the number of dice and Y is the sides of dice.\n"
-            "Example: `!roll 4d6` to roll 4 dice with 6 sides.\n"
-            "*Optionally* you can add a modifier that gets added or subtracted from the end result.\n"
-            "Example: `!roll 4d6+2` or `!roll 4d6-2`",  # Value fo the field
-            inline=False,  # Display the field in a new line
-        )
-
-        # Add a field for creating a character
-        embed.add_field(
-            name="Create a character using dice rolls (__Excludes__ the lowest roll):",  # Title of the field
-            value="`!roll_char XdY` - where X is the number of dice and Y is the sides of dice.\n"
-            "Example: `!roll_char 4d6` to roll 4 dice with 6 sides.\nThe bot will ask you for your Characters name *after* the initial roll command.",  # Value of the field
-            inline=False,  # Display the field in a new line
-        )
-
-        # Add a field for showing created character stats
-        embed.add_field(
-            name="Showing created character stats:",  # Title of the field
-            value="`!stats Name` - where `Name` is the name of your character. Example: `!stats bob`",  # Value of the field
-            inline=False,  # Display the field in a new line
-        )
-
-        # Add a field for lvling up
-        embed.add_field(
-            name="Adding stats/Lvling up:",  # Title of the field
-            value=(
-                "`!lvl Name` - where `Name` is the name of your character.\n"
-                "Example: `!lvl bob`.\n"
-                "This command allows you to add 2 stat points of your choosing to your character."
-            ),  # Value for the field
-            inline=False,
-        )
-
-        # Add a field for showing all characters
-        embed.add_field(
-            name="Show all saved characters:",  # Title of the field
-            value="`!showall`",  # Value of the field
-            inline=False,  # Display the field in a new line
-        )
-
-        # Add a field for deleting a character savefile
-        embed.add_field(
-            name="Remove a character stat savefile:",  # Title of the field
-            value="`!rm Name` - where `Name` is the name of your character. \nExample: `!rm bob`\n"
-            "Deleting a savefile is restricted to the character's creator or individuals with admin privileges.",  # Value of the field
-            inline=False,  # Display the field in a new line
-        )
-
-        # Iterate through each command and add its name and description to the embed
-        for cog, commands_list in mapping.items():
-            if cog:  # Check if the command belongs to a cog
-                embed.add_field(
-                    name=cog.qualified_name,  # Name of the cog as the title of the field
-                    value="\n".join(  # Join command names and their descriptions with new lines
-                        [
-                            f"`{command.name}` - {command.brief or 'No description available.'}"
-                            for command in commands_list
-                        ]
-                    ),
-                    inline=False,  # Display the field in a new line
-                )
-
-        # Send the embed
-        await self.get_destination().send(embed=embed)
-
-
+# Create a new instance of Bot from the commands extension
+# Set the command prefix to "/" which means commands will be triggered by "/command_name"
+# Define the bot's intents to specify which events the bot will receive from Discord
+# Disable the default help command provided by Discord.py
+# Make the commands case-insensitive, meaning "/command" and "/Command" would trigger the same command
 bot = commands.Bot(
-    command_prefix=["!"],
-    intents=intents,
-    help_command=CustomHelpCommand(),
-    case_insensitive=True,
+    command_prefix=["/"],  # Define the prefix for command invocation
+    intents=intents,  # Specify the intents for the bot to receive from Discord
+    help_command=None,  # Disable the default help command
+    case_insensitive=True,  # Make commands case-insensitive
 )
+
+# Create an instance of the CustomHelpCommand class and pass the bot instance to it
+# This allows the custom help command to access bot-related functionality
+custom_help_command = CustomHelpCommand(bot)
 
 
 # Helper function to get the ID of the character creator
@@ -157,6 +77,23 @@ async def get_character_creator_id(char_name, server_id):
                 creator_id = int(row.get("CreatorID", 0))
                 return creator_id
     return None
+
+
+async def help_cogs(ctx):
+    """
+    Asynchronously adds the CustomHelpCommand cog to the bot.
+
+    This function is used to add the CustomHelpCommand cog to the bot.
+    The CustomHelpCommand cog provides custom help functionality for displaying bot commands.
+    This function is typically called when the bot is initialized or when the help command is invoked.
+
+    Args:
+        ctx (commands.Context): The context representing the invocation context of the command.
+
+    Returns:
+        None
+    """
+    await bot.add_cog(CustomHelpCommand(bot))
 
 
 @bot.event
@@ -224,7 +161,19 @@ async def update_commands():
             bot.command(name=f"{character_name}_stats")(display_character_stats_wrapper)
 
 
-@bot.hybrid_command(name="roll", description="Roll a specified number of dice with a specified number of sides and an optional modifier. E.g. !roll 4d6+2")
+@bot.hybrid_command(name="help", description="Shows all available commands.")
+async def help(ctx):
+    try:
+        help_embed = await custom_help_command.send_bot_help(ctx, None)
+        await ctx.send(embed=help_embed, ephemeral=True)
+    except Exception as e:
+        await ctx.send(f"An error occurred: {e}", ephemeral=True)
+
+
+@bot.hybrid_command(
+    name="roll",
+    description="Roll a specified number of dice with a specified number of sides and an optional modifier.",
+)
 async def norm_roll(ctx, *, roll_input):
     """
     Roll a specified number of dice with a specified number of sides and an optional modifier.
@@ -266,11 +215,15 @@ async def norm_roll(ctx, *, roll_input):
     else:
         # Send error message for invalid input format
         await ctx.send(
-            "Invalid input format. Please use the format 'XdY' or 'XdY+/-Z', where X is the number of dice, Y is the number of sides, and Z is the modifier.", ephemeral=True
+            "Invalid input format. Please use the format 'XdY' or 'XdY+/-Z', where X is the number of dice, Y is the number of sides, and Z is the modifier.",
+            ephemeral=True,
         )
 
 
-@bot.hybrid_command(name="roll_char", description="Create a character using dice rolls. Excludes the lowest roll! E.g. !roll_char 4d6")
+@bot.hybrid_command(
+    name="roll_char",
+    description="Create a character using dice rolls. Excludes the lowest roll! E.g. /roll_char 4d6",
+)
 async def roll(ctx, *, roll_input: str):
     """
     Roll stats for a character.
@@ -339,7 +292,9 @@ async def roll(ctx, *, roll_input: str):
     await player.save_to_csv(character_name, ctx)
 
 
-@bot.hybrid_command(name="stats", description="Display character stats. E.g. !stats Bob")
+@bot.hybrid_command(
+    name="stats", description="Display character stats. E.g. /stats Bob"
+)
 async def stats(ctx, *, name: str):
     """
     Display character stats.
@@ -365,13 +320,16 @@ async def stats(ctx, *, name: str):
         await ctx.send(f"An error occurred: {e}", ephemeral=True)
 
 
-@bot.hybrid_command(name="lvl", description="Add 2 stat points of your choosing to your character. E.g. !lvl Bob")
-async def lvl(ctx, *, char_name):
+@bot.hybrid_command(
+    name="lvl",
+    description="Add 2 stat points of your choosing to your character. E.g. /lvl Bob",
+)
+async def lvl(ctx, *, name):
     try:
-        char_name = char_name.lower()
+        name = name.lower()
 
         # Check if the user is the creator of the character or has admin permissions
-        creator_id = await get_character_creator_id(char_name, ctx.guild.id)
+        creator_id = await get_character_creator_id(name, ctx.guild.id)
         if (
             ctx.author.id != creator_id
             and not ctx.author.guild_permissions.administrator
@@ -391,13 +349,14 @@ async def lvl(ctx, *, char_name):
                     stats_message = message
                     break
 
+        lvl_text = f"Here are the current stats for {name}:"
         # Display character stats and update the existing stats message if available
         stats_message = await Character.display_character_stats_lvl(
-            ctx, char_name, ctx.guild.id, stats_message
+            ctx, name, ctx.guild.id, stats_message, lvl_text
         )
 
         # Create an instance of MyView and send the message with the view
-        view = MyView(ctx, char_name, stats_message)
+        view = MyView(ctx, name, stats_message)
         buttons_message = await ctx.send(
             "Select which attribute you want to increase:", view=view
         )
@@ -406,12 +365,14 @@ async def lvl(ctx, *, char_name):
         view.message = buttons_message
 
     except RuntimeError:
-        await ctx.send(f"'{char_name}' savefile not found.", ephemeral=True)
+        await ctx.send(f"'{name}' savefile not found.", ephemeral=True)
     except Exception as e:
         await ctx.send(f"An error occurred: {e}", ephemeral=True)
 
 
-@bot.hybrid_command(name="showall", description="Display all saved characters for the server.")
+@bot.hybrid_command(
+    name="showall", description="Display all saved characters for the server."
+)
 async def showall(ctx):
     """
     Display all saved characters for the server.
@@ -440,7 +401,9 @@ async def showall(ctx):
         await ctx.send(f"An error occurred: {e}", ephemeral=True)
 
 
-@bot.hybrid_command(name="rm", description="Remove saved character stats file. E.g. !rm Bob")
+@bot.hybrid_command(
+    name="rm", description="Remove saved character stats file. E.g. /rm Bob"
+)
 async def rm(ctx, *, name: str):
     """
     Remove character stats file if the user has appropriate permissions.
@@ -482,12 +445,14 @@ async def rm(ctx, *, name: str):
                 # Check if the user is allowed to access the directory
                 if not os.access(server_dir, os.R_OK):
                     await ctx.send(
-                        f"Unable to access '{name}' savefile.", ephemeral=True,
+                        f"Unable to access '{name}' savefile.",
+                        ephemeral=True,
                     )  # Send error message if access is denied
                     return
 
                 await ctx.send(
-                    f"Unable to determine creator of character '{name}'.", ephemeral=True
+                    f"Unable to determine creator of character '{name}'.",
+                    ephemeral=True,
                 )  # Send error message if creator ID not found
                 return
 
@@ -527,6 +492,30 @@ async def rm(ctx, *, name: str):
         await ctx.send(
             f"An error occurred: {e}", ephemeral=True
         )  # Send error message if other exception occurs
+
+
+@bot.hybrid_command(name="wrist", description="Big sad :(")
+async def wrist(ctx):
+    try:
+        name = ctx.message.author.display_name
+        await ctx.send(f"R.I.P {name}")
+    except Exception as e:
+        await ctx.send(f"An error occurred: {e}")
+
+
+# manually sync all global commands if necessary
+@bot.command(description="sync all global commands")
+@commands.is_owner()
+async def syncslash(ctx):
+    if ctx.author.id == 150721477480546304:
+        try:
+            await bot.tree.sync()
+            await ctx.bot.tree.sync(guild=ctx.guild)
+            print("Synced")
+        except discord.Forbidden:
+            await ctx.send("Unexpected forbidden from application scope.")
+    else:
+        await ctx.send("You must be the owner to use this command")
 
 
 bot.run(TOKEN)
