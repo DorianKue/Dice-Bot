@@ -122,7 +122,7 @@ class Character:
             await ctx.send("Character stats have been saved.")
         except Exception as e:
             # Send error message if an exception occurs
-            await ctx.send(f"An error occurred while trying to save: {e}")
+            await ctx.send(f"An error occurred while trying to save: {e}", ephemeral=True)
 
     @staticmethod
     async def display_character_stats(ctx, char_name, server_id):
@@ -168,10 +168,10 @@ class Character:
                 # Return the message object
                 return message
         except FileNotFoundError:
-            await ctx.send(f"'{char_name}' savefile not found.")
+            await ctx.send(f"'{char_name}' savefile not found.", ephemeral=True)
         except Exception as e:
             # Send error message if an exception occurs
-            await ctx.send(f"An error occurred: {e}")
+            await ctx.send(f"An error occurred: {e}", ephemeral=True)
             return None  # Return None if an error occurs
 
     @classmethod
@@ -248,4 +248,4 @@ class Character:
 
         except Exception as e:
             # Raise an exception if an error occurs
-            raise RuntimeError(f"An error occurred: {e}")
+            raise RuntimeError(f"An error occurred: {e}", ephemeral=True)

@@ -51,17 +51,6 @@ class CustomHelpCommand(commands.DefaultHelpCommand):
             color=discord.Color.blue(),  # Color of the embed
         )
 
-        # Add a field for lvling up
-        embed.add_field(
-            name="Adding stats/Lvling up:",  # Title of the field
-            value=(
-                "`!lvl Name` - where `Name` is the name of your character.\n"
-                "Example: `!lvl bob`.\n"
-                "This command allows you to add 2 stat points of your choosing to your character."
-            ),  # Value for the field
-            inline=False,
-        )
-
         # Add a field for rolling dice
         embed.add_field(
             name="Rolling dice:",  # Title of the field
@@ -87,18 +76,29 @@ class CustomHelpCommand(commands.DefaultHelpCommand):
             inline=False,  # Display the field in a new line
         )
 
-        # Add a field for deleting a character savefile
+        # Add a field for lvling up
         embed.add_field(
-            name="Remove a character stat savefile:",  # Title of the field
-            value="`!rm Name` - where `Name` is the name of your character. \nExample: `!rm bob`\n"
-            "Deleting a savefile is restricted to the character's creator or individuals with admin privileges.",  # Value of the field
-            inline=False,  # Display the field in a new line
+            name="Adding stats/Lvling up:",  # Title of the field
+            value=(
+                "`!lvl Name` - where `Name` is the name of your character.\n"
+                "Example: `!lvl bob`.\n"
+                "This command allows you to add 2 stat points of your choosing to your character."
+            ),  # Value for the field
+            inline=False,
         )
 
         # Add a field for showing all characters
         embed.add_field(
             name="Show all saved characters:",  # Title of the field
             value="`!showall`",  # Value of the field
+            inline=False,  # Display the field in a new line
+        )
+
+        # Add a field for deleting a character savefile
+        embed.add_field(
+            name="Remove a character stat savefile:",  # Title of the field
+            value="`!rm Name` - where `Name` is the name of your character. \nExample: `!rm bob`\n"
+            "Deleting a savefile is restricted to the character's creator or individuals with admin privileges.",  # Value of the field
             inline=False,  # Display the field in a new line
         )
 
@@ -121,11 +121,42 @@ class CustomHelpCommand(commands.DefaultHelpCommand):
 
 
 bot = commands.Bot(
-    command_prefix=["!", "/"],
+    command_prefix=["!"],
     intents=intents,
     help_command=CustomHelpCommand(),
     case_insensitive=True,
 )
+
+
+# Helper function to get the ID of the character creator
+async def get_character_creator_id(char_name, server_id):
+    """
+    Get the ID of the user who created the character.
+
+    Args:
+        char_name (str): The name of the character.
+        server_id (int): The ID of the server where the character belongs.
+
+    Returns:
+        int: The ID of the user who created the character.
+    """
+    # Construct directory path based on server ID
+    server_dir = f"server_{server_id}"
+    # Construct the full file path
+    filepath = os.path.join(server_dir, f"{char_name}_stats.csv")
+
+    # Check if the character's stats file exists
+    if not os.path.isfile(filepath):
+        return None
+
+    # Load the creator ID from the CSV file
+    with open(filepath, newline="") as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            if row["Name"] == char_name:
+                creator_id = int(row.get("CreatorID", 0))
+                return creator_id
+    return None
 
 
 @bot.event
@@ -155,7 +186,7 @@ async def on_command_error(ctx, error):
         pass
     else:
         # Handle other errors
-        await ctx.send(f"An error occurred: {error}")
+        await ctx.send(f"An error occurred: {error}", ephemeral=True)
 
 
 async def update_commands():
@@ -193,39 +224,151 @@ async def update_commands():
             bot.command(name=f"{character_name}_stats")(display_character_stats_wrapper)
 
 
-@bot.command()
-async def showall(ctx):
+@bot.hybrid_command(name="roll", description="Roll a specified number of dice with a specified number of sides and an optional modifier. E.g. !roll 4d6+2")
+async def norm_roll(ctx, *, roll_input):
     """
-    Display all saved characters for the server.
+    Roll a specified number of dice with a specified number of sides and an optional modifier.
 
     Args:
-        ctx (discord.ext.commands.Context): The context object representing the invocation context.
+        ctx: The context object representing the invocation context.
+        roll_input (str): The input specifying the number of dice, sides, and optional modifier (e.g., '2d6', '4d6+2', '3d10-1').
+    """
+    # Define a regular expression pattern to match the roll input format
+    pattern = r"(\d+)d(\d+)([+-]\d+)?"
+
+    # Try to match the input against the pattern
+    match = re.match(pattern, roll_input)
+    if match:
+        # Extract the number of dice, sides, and modifier (if any)
+        num_dice = int(match.group(1))  # Extract the number of dice
+        sides = int(match.group(2))  # Extract the number of sides
+        modifier_str = match.group(3)  # Extract the modifier as a string
+        modifier = 0  # Initialize modifier to 0
+        if modifier_str:
+            modifier = int(modifier_str)  # Convert the modifier string to an integer
+
+        # Check if the number of dice is positive
+        if num_dice <= 0:
+            await ctx.send("Please specify a positive number of dice.", ephemeral=True)
+            return
+
+        # Roll the dice and calculate the total
+        rolls = [random.randint(1, sides) for _ in range(num_dice)]  # Roll the dice
+        total = sum(rolls) + modifier  # Calculate the total by adding the modifier
+
+        # Send the roll results to the channel
+        if num_dice > 1:
+            await ctx.send(
+                f"You rolled: {rolls}\nTotal: {total}"
+            )  # Send rolls and total
+        else:
+            await ctx.send(f"You rolled: {rolls}")  # Send rolls only if one die rolled
+    else:
+        # Send error message for invalid input format
+        await ctx.send(
+            "Invalid input format. Please use the format 'XdY' or 'XdY+/-Z', where X is the number of dice, Y is the number of sides, and Z is the modifier.", ephemeral=True
+        )
+
+
+@bot.hybrid_command(name="roll_char", description="Create a character using dice rolls. Excludes the lowest roll! E.g. !roll_char 4d6")
+async def roll(ctx, *, roll_input: str):
+    """
+    Roll stats for a character.
+
+    Args:
+        ctx: The context object representing the invocation context.
+        roll_input (str): The input specifying the number of dice and sides for rolling character stats.
     """
     try:
-        # Construct directory path based on server ID
-        server_dir = f"server_{ctx.guild.id}"
-        # Get a list of files in the server directory
-        files = os.listdir(server_dir)
-        # Extract character names from filenames
-        char_names = [filename.split("_stats.csv")[0] for filename in files]
-        # Format the character names with bullet points and new lines
-        char_list = "\n".join([f"• {name}" for name in char_names])
-        # Send the list of character names as a message
-        if len(char_list) == 0:
-            await ctx.send("No characters found")
-        else:
-            await ctx.send(f"**`Saved characters`**:\n{char_list}")
+        # Parse input to get number of dice and sides
+        num_dice, sides = map(int, roll_input.split("d"))
+    except ValueError:
+        # Handle invalid input format
+        await ctx.send(
+            "Invalid input format. Please use the format 'XdY', where X is the number of dice and Y is the number of sides.",
+            ephemeral=True,
+        )
+        return
+
+    # Check if the number of dice is positive
+    if num_dice <= 0:
+        await ctx.send(
+            "Please specify a positive number of dice.",
+            ephemeral=True,
+        )
+        return
+
+    # Prompt for character name
+    await ctx.send("What's the name of your character?")
+    try:
+        # Wait for the user's response to get the character name
+        response = await bot.wait_for(
+            "message", timeout=60, check=lambda message: message.author == ctx.author
+        )
+        character_name = response.content.strip()
+    except asyncio.TimeoutError:
+        # Handle timeout if the user doesn't provide a character name
+        await ctx.send("Timed out. Character name not provided.", ephemeral=True)
+        return
+
+    # Create character object and roll stats
+    player = Character(character_name, ctx.guild.id)
+    player.roll_stats(num_dice, sides)
+
+    # Show stats
+    await player.show_stats(ctx)
+
+    # Prompt for reroll
+    await ctx.send("Would you like to reroll? (yes/no)")
+    try:
+        # Wait for the user's response to decide whether to reroll
+        response = await bot.wait_for(
+            "message", timeout=60, check=lambda message: message.author == ctx.author
+        )
+        reroll_choice = response.content.strip().lower()
+        if reroll_choice in ["yes", "y"]:
+            # Reroll if the user chooses to do so
+            player.roll_stats(num_dice, sides)
+            await player.show_stats(ctx)
+    except asyncio.TimeoutError:
+        # Handle timeout if the user doesn't respond to the reroll prompt
+        await ctx.send("Timed out. Reroll canceled.", ephemeral=True)
+        return
+
+    # Save character stats to CSV
+    await player.save_to_csv(character_name, ctx)
+
+
+@bot.hybrid_command(name="stats", description="Display character stats. E.g. !stats Bob")
+async def stats(ctx, *, name: str):
+    """
+    Display character stats.
+
+    Args:
+        ctx: The context object representing the invocation context.
+        name (str): The name of the character.
+    """
+    try:
+        # name = name.lower()
+
+        # Define a wrapper function to pass arguments to display_character_stats
+        async def display_character_stats_wrapper(
+            ctx, char_name=name, server_id=ctx.guild.id
+        ):
+            await Character.display_character_stats(ctx, char_name, server_id)
+
+        # Call the wrapper function to display character stats
+        await display_character_stats_wrapper(ctx)
     except FileNotFoundError:
-        await ctx.send("No saves yet")
+        await ctx.send(f"'{name}' savefile not found.", ephemeral=True)
     except Exception as e:
-        # Send an error message if an exception occurs
-        await ctx.send(f"An error occurred: {e}")
+        await ctx.send(f"An error occurred: {e}", ephemeral=True)
 
 
-@bot.command()
+@bot.hybrid_command(name="lvl", description="Add 2 stat points of your choosing to your character. E.g. !lvl Bob")
 async def lvl(ctx, *, char_name):
     try:
-        # char_name = char_name.lower()
+        char_name = char_name.lower()
 
         # Check if the user is the creator of the character or has admin permissions
         creator_id = await get_character_creator_id(char_name, ctx.guild.id)
@@ -263,180 +406,41 @@ async def lvl(ctx, *, char_name):
         view.message = buttons_message
 
     except RuntimeError:
-        await ctx.send(f"'{char_name}' savefile not found.")
+        await ctx.send(f"'{char_name}' savefile not found.", ephemeral=True)
     except Exception as e:
-        await ctx.send(f"An error occurred: {e}")
+        await ctx.send(f"An error occurred: {e}", ephemeral=True)
 
 
-# Helper function to get the ID of the character creator
-async def get_character_creator_id(char_name, server_id):
+@bot.hybrid_command(name="showall", description="Display all saved characters for the server.")
+async def showall(ctx):
     """
-    Get the ID of the user who created the character.
+    Display all saved characters for the server.
 
     Args:
-        char_name (str): The name of the character.
-        server_id (int): The ID of the server where the character belongs.
-
-    Returns:
-        int: The ID of the user who created the character.
+        ctx (discord.ext.commands.Context): The context object representing the invocation context.
     """
-    # Construct directory path based on server ID
-    server_dir = f"server_{server_id}"
-    # Construct the full file path
-    filepath = os.path.join(server_dir, f"{char_name}_stats.csv")
-
-    # Check if the character's stats file exists
-    if not os.path.isfile(filepath):
-        return None
-
-    # Load the creator ID from the CSV file
-    with open(filepath, newline="") as file:
-        reader = csv.DictReader(file)
-        for row in reader:
-            if row["Name"] == char_name:
-                creator_id = int(row.get("CreatorID", 0))
-                return creator_id
-    return None
-
-
-@bot.command(name="roll")
-async def norm_roll(ctx, *, roll_input):
-    """
-    Roll a specified number of dice with a specified number of sides and an optional modifier.
-
-    Args:
-        ctx: The context object representing the invocation context.
-        roll_input (str): The input specifying the number of dice, sides, and optional modifier (e.g., '2d6', '4d6+2', '3d10-1').
-    """
-    # Define a regular expression pattern to match the roll input format
-    pattern = r"(\d+)d(\d+)([+-]\d+)?"
-
-    # Try to match the input against the pattern
-    match = re.match(pattern, roll_input)
-    if match:
-        # Extract the number of dice, sides, and modifier (if any)
-        num_dice = int(match.group(1))  # Extract the number of dice
-        sides = int(match.group(2))  # Extract the number of sides
-        modifier_str = match.group(3)  # Extract the modifier as a string
-        modifier = 0  # Initialize modifier to 0
-        if modifier_str:
-            modifier = int(modifier_str)  # Convert the modifier string to an integer
-
-        # Check if the number of dice is positive
-        if num_dice <= 0:
-            await ctx.send("Please specify a positive number of dice.")
-            return
-
-        # Roll the dice and calculate the total
-        rolls = [random.randint(1, sides) for _ in range(num_dice)]  # Roll the dice
-        total = sum(rolls) + modifier  # Calculate the total by adding the modifier
-
-        # Send the roll results to the channel
-        if num_dice > 1:
-            await ctx.send(
-                f"You rolled: {rolls}\nTotal: {total}"
-            )  # Send rolls and total
+    try:
+        # Construct directory path based on server ID
+        server_dir = f"server_{ctx.guild.id}"
+        # Get a list of files in the server directory
+        files = os.listdir(server_dir)
+        # Extract character names from filenames
+        char_names = [filename.split("_stats.csv")[0] for filename in files]
+        # Format the character names with bullet points and new lines
+        char_list = "\n".join([f"• {name}" for name in char_names])
+        # Send the list of character names as a message
+        if len(char_list) == 0:
+            await ctx.send("No characters found")
         else:
-            await ctx.send(f"You rolled: {rolls}")  # Send rolls only if one die rolled
-    else:
-        # Send error message for invalid input format
-        await ctx.send(
-            "Invalid input format. Please use the format 'XdY' or 'XdY+/-Z', where X is the number of dice, Y is the number of sides, and Z is the modifier."
-        )
-
-
-@bot.command(name="roll_char")
-async def roll(ctx, *, roll_input: str):
-    """
-    Roll stats for a character.
-
-    Args:
-        ctx: The context object representing the invocation context.
-        roll_input (str): The input specifying the number of dice and sides for rolling character stats.
-    """
-    try:
-        # Parse input to get number of dice and sides
-        num_dice, sides = map(int, roll_input.split("d"))
-    except ValueError:
-        # Handle invalid input format
-        await ctx.send(
-            "Invalid input format. Please use the format 'XdY', where X is the number of dice and Y is the number of sides."
-        )
-        return
-
-    # Check if the number of dice is positive
-    if num_dice <= 0:
-        await ctx.send("Please specify a positive number of dice.")
-        return
-
-    # Prompt for character name
-    await ctx.send("What's the name of your character?")
-    try:
-        # Wait for the user's response to get the character name
-        response = await bot.wait_for(
-            "message", timeout=60, check=lambda message: message.author == ctx.author
-        )
-        character_name = response.content.strip()
-    except asyncio.TimeoutError:
-        # Handle timeout if the user doesn't provide a character name
-        await ctx.send("Timed out. Character name not provided.")
-        return
-
-    # Create character object and roll stats
-    player = Character(character_name, ctx.guild.id)
-    player.roll_stats(num_dice, sides)
-
-    # Show stats
-    await player.show_stats(ctx)
-
-    # Prompt for reroll
-    await ctx.send("Would you like to reroll? (yes/no)")
-    try:
-        # Wait for the user's response to decide whether to reroll
-        response = await bot.wait_for(
-            "message", timeout=60, check=lambda message: message.author == ctx.author
-        )
-        reroll_choice = response.content.strip().lower()
-        if reroll_choice in ["yes", "y"]:
-            # Reroll if the user chooses to do so
-            player.roll_stats(num_dice, sides)
-            await player.show_stats(ctx)
-    except asyncio.TimeoutError:
-        # Handle timeout if the user doesn't respond to the reroll prompt
-        await ctx.send("Timed out. Reroll canceled.")
-        return
-
-    # Save character stats to CSV
-    await player.save_to_csv(character_name, ctx)
-
-
-@bot.command()
-async def stats(ctx, *, name: str):
-    """
-    Display character stats.
-
-    Args:
-        ctx: The context object representing the invocation context.
-        name (str): The name of the character.
-    """
-    try:
-        # name = name.lower()
-
-        # Define a wrapper function to pass arguments to display_character_stats
-        async def display_character_stats_wrapper(
-            ctx, char_name=name, server_id=ctx.guild.id
-        ):
-            await Character.display_character_stats(ctx, char_name, server_id)
-
-        # Call the wrapper function to display character stats
-        await display_character_stats_wrapper(ctx)
+            await ctx.send(f"**`Saved characters`**:\n{char_list}")
     except FileNotFoundError:
-        await ctx.send(f"'{name}' savefile not found.")
+        await ctx.send("No saves yet")
     except Exception as e:
-        await ctx.send(f"An error occurred: {e}")
+        # Send an error message if an exception occurs
+        await ctx.send(f"An error occurred: {e}", ephemeral=True)
 
 
-@bot.command()
+@bot.hybrid_command(name="rm", description="Remove saved character stats file. E.g. !rm Bob")
 async def rm(ctx, *, name: str):
     """
     Remove character stats file if the user has appropriate permissions.
@@ -446,7 +450,7 @@ async def rm(ctx, *, name: str):
         name (str): The name of the character whose stats file needs to be removed.
     """
     try:
-        # name = name.lower()
+        name = name.lower()
         # Construct filepath for the character's stats file
         server_dir = f"server_{ctx.guild.id}"  # Construct server directory name based on guild ID
         filename = f"{name}_stats.csv"  # Construct filename based on character name
@@ -457,24 +461,33 @@ async def rm(ctx, *, name: str):
         # Check if the character's stats file exists
         if not os.path.isfile(filepath):  # Check if filepath points to a file
             await ctx.send(
-                f"'{name}' savefile not found."
+                f"'{name}' savefile not found.", ephemeral=True
             )  # Send error message if file doesn't exist
             return
 
         # Load the user ID who created the character from the CSV file
         with open(filepath, newline="") as file:  # Open the character's stats file
             reader = csv.DictReader(file)  # Create a CSV DictReader object
+            creator_id = None
             for row in reader:  # Iterate through each row in the CSV
                 if (
-                    row["Name"] == name
+                    row["Name"].lower() == name
                 ):  # Check if the row corresponds to the character name
                     creator_id = int(
                         row.get("CreatorID", 0)
                     )  # Get the ID of the creator from the CSV
                     break  # Stop iterating if the character is found
-            else:
+
+            if creator_id is None:
+                # Check if the user is allowed to access the directory
+                if not os.access(server_dir, os.R_OK):
+                    await ctx.send(
+                        f"Unable to access '{name}' savefile.", ephemeral=True,
+                    )  # Send error message if access is denied
+                    return
+
                 await ctx.send(
-                    f"Unable to determine creator of character '{name}'."
+                    f"Unable to determine creator of character '{name}'.", ephemeral=True
                 )  # Send error message if creator ID not found
                 return
 
@@ -500,21 +513,19 @@ async def rm(ctx, *, name: str):
                 )  # Send success message
             else:
                 await ctx.send(
-                    "Deletion canceled"
+                    "Deletion canceled", ephemeral=True
                 )  # Send cancellation message if user cancels
         else:
             await ctx.send(
-                "You are not authorized to delete this character."
+                "You are not authorized to delete this character.", ephemeral=True
             )  # Send error message if user lacks permissions
     except asyncio.TimeoutError:  # Handle timeout exception
         await ctx.send(
-            "Timed out. Deletion canceled."
+            "Timed out. Deletion canceled.", ephemeral=True
         )  # Send message if deletion times out
-    except RuntimeError:
-        await ctx.send(f"'{name}' savefile not found.")
     except Exception as e:  # Handle other exceptions
         await ctx.send(
-            f"An error occurred: {e}"
+            f"An error occurred: {e}", ephemeral=True
         )  # Send error message if other exception occurs
 
 
