@@ -17,32 +17,30 @@ from lvl_buttons import MyView
 from help import CustomHelpCommand
 
 
-# Load environment variables from the .env file
-load_dotenv()
+def bot_setup():
+    # Load environment variables from the .env file
+    load_dotenv()
 
-# Get Discord token from environment variable
-TOKEN = os.getenv("DISCORD_TOKEN")
+    # Get Discord token from environment variable
+    TOKEN = os.getenv("DISCORD_TOKEN")
 
-# Create Discord bot instance with specified intents
-intents = Intents.default()
-intents.message_content = True
-client = Client(
-    intents=intents
-)  # Initialize a Discord client with the specified intent
+    # Create Discord bot instance with specified intents
+    intents = Intents.default()
+    intents.message_content = True
+    client = Client(
+        intents=intents
+    )  # Initialize a Discord client with the specified intent
+
+    bot = commands.Bot(
+        command_prefix=["/"],  # Define the prefix for command invocation
+        intents=intents,  # Specify the intents for the bot to receive from Discord
+        help_command=None,  # Disable the default help command
+        case_insensitive=True,  # Make commands case-insensitive
+    )
+    return bot, TOKEN
 
 
-# Create a new instance of Bot from the commands extension
-# Set the command prefix to "/" which means commands will be triggered by "/command_name"
-# Define the bot's intents to specify which events the bot will receive from Discord
-# Disable the default help command provided by Discord.py
-# Make the commands case-insensitive, meaning "/command" and "/Command" would trigger the same command
-bot = commands.Bot(
-    command_prefix=["/"],  # Define the prefix for command invocation
-    intents=intents,  # Specify the intents for the bot to receive from Discord
-    help_command=None,  # Disable the default help command
-    case_insensitive=True,  # Make commands case-insensitive
-)
-
+bot, TOKEN = bot_setup()
 # Create an instance of the CustomHelpCommand class and pass the bot instance to it
 # This allows the custom help command to access bot-related functionality
 custom_help_command = CustomHelpCommand(bot)
@@ -207,11 +205,23 @@ async def norm_roll(ctx, *, roll_input):
 
         # Send the roll results to the channel
         if num_dice > 1:
-            await ctx.send(
-                f"You rolled: {rolls}\nTotal: {total}"
-            )  # Send rolls and total
+            if not modifier_str:
+                await ctx.send(
+                    f"You rolled: {rolls}\nTotal: {total}"
+                )  # Send rolls and total
+            else:
+                await ctx.send(
+                    f"You rolled: {rolls}\nTotal with modifier: {total}"
+                )  # Send rolls and total with modifier
         else:
-            await ctx.send(f"You rolled: {rolls}")  # Send rolls only if one die rolled
+            if not modifier_str:
+                await ctx.send(
+                    f"You rolled: {rolls}"
+                )  # Send rolls only if one die rolled
+            else:
+                await ctx.send(
+                    f"You rolled: {rolls}\nTotal with modifier: {total}"
+                )  # Send rolls and total with modifier
     else:
         # Send error message for invalid input format
         await ctx.send(
@@ -327,7 +337,6 @@ async def stats(ctx, *, name: str):
 async def lvl(ctx, *, name):
     try:
         name = name.lower()
-
         # Check if the user is the creator of the character or has admin permissions
         creator_id = await get_character_creator_id(name, ctx.guild.id)
         if (
@@ -338,31 +347,16 @@ async def lvl(ctx, *, name):
                 "You are not authorized to level up this character.", ephemeral=True
             )
             return
-
-        # Retrieve the stats message if it already exists
-        stats_message = None  # Initialize stats_message
-        # Retrieve stats message by searching through the channel's history
+        # Retrieve the stats table message if it already exists
+        stats_message = None
         async for message in ctx.channel.history(limit=2):
             if message.author == ctx.guild.me and message.embeds:
-                # Assuming the stats table is sent as an embed
                 if "Character's Stats" in message.embeds[0].title:
                     stats_message = message
                     break
-
-        lvl_text = f"Here are the current stats for {name}:"
-        # Display character stats and update the existing stats message if available
-        stats_message = await Character.display_character_stats_lvl(
-            ctx, name, ctx.guild.id, stats_message, lvl_text
-        )
-
         # Create an instance of MyView and send the message with the view
         view = MyView(ctx, name, stats_message)
-        buttons_message = await ctx.send(
-            "Select which attribute you want to increase:", view=view
-        )
-
-        # Update the MyView instance with the buttons message
-        view.message = buttons_message
+        await view.send_message()
 
     except RuntimeError:
         await ctx.send(f"'{name}' savefile not found.", ephemeral=True)

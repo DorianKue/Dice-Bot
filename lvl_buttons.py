@@ -2,12 +2,13 @@ from character import (
     Character,
 )  # Importing the Character class from the character module
 import discord  # Importing the discord module
+import os
+import csv
+from tabulate import tabulate
 
 
-class MyView(discord.ui.View):  # Defining a custom Discord UI view
-    class StatButton(
-        discord.ui.Button
-    ):  # Defining a custom button class for managing character stats
+class MyView(discord.ui.View):
+    class StatButton(discord.ui.Button):
         """
         Represents a button for updating character stats.
 
@@ -17,9 +18,7 @@ class MyView(discord.ui.View):  # Defining a custom Discord UI view
             view (MyView): The MyView instance to which the button belongs.
         """
 
-        def __init__(
-            self, stat_name, label, max_clicks, view
-        ):  # Initializing the StatButton object
+        def __init__(self, stat_name, label, max_clicks, view):
             """
             Initializes the StatButton object.
 
@@ -31,7 +30,6 @@ class MyView(discord.ui.View):  # Defining a custom Discord UI view
             """
             super().__init__(
                 label=label,
-                # Determine button style based on stat_name
                 style=(
                     discord.ButtonStyle.red
                     if stat_name in ["Strength", "Constitution"]
@@ -42,26 +40,25 @@ class MyView(discord.ui.View):  # Defining a custom Discord UI view
                     )
                 ),
                 custom_id=stat_name,
-                # Determine button row based on stat_name
                 row=0 if stat_name in ["Strength", "Dexterity", "Intelligence"] else 1,
             )
-            self.stat_name = stat_name
-            self.max_clicks = max_clicks
-            self._view = view
+            self.stat_name = stat_name  # Assigning the stat name to the button
+            self.max_clicks = max_clicks  # Assigning the maximum clicks allowed
+            self._view = (
+                view  # Assigning the MyView instance to which the button belongs
+            )
 
         @property
-        def view(self):  # Getter method for accessing the MyView instance
+        def view(self):
             """MyView: The MyView instance to which the button belongs."""
             return self._view
 
         @view.setter
-        def view(self, value):  # Setter method for setting the MyView instance
+        def view(self, value):
             """Sets the MyView instance to which the button belongs."""
             self._view = value
 
-        async def callback(
-            self, interaction: discord.Interaction
-        ):  # Callback method for handling button interactions
+        async def callback(self, interaction: discord.Interaction):
             """
             Handles button callback interaction.
 
@@ -71,43 +68,44 @@ class MyView(discord.ui.View):  # Defining a custom Discord UI view
             # Check if the user is allowed to interact with the button
             if self.view and not await self.view.button_check(interaction):
                 return
+
             # Update character stat if click count is within limits
             if self.view and self.view.click_count < self.max_clicks:
-                await self.view.update_character_stat(self.stat_name)
+                await self.view.update_character_stat(
+                    self.stat_name
+                )  # Update the character stat
                 await interaction.response.edit_message(
                     content=f"{self.stat_name} increased by 1", view=self.view
                 )
-                await self.view.check_completion()
+                # Get the stats message and edit it
+                stats_message = await self.view.send_message()
+                await self.view.check_completion()  # Check if the max click count is reached
             else:
-                await self.view.disable_buttons()
+                await self.view.disable_buttons()  # Disable all buttons
 
-    def __init__(
-        self, ctx, char_name, stats_table_message, max_clicks=2
-    ):  # Initializing the MyView object
+    def __init__(self, ctx, char_name, stats_table_message, max_clicks=2):
         """
         Initializes the MyView object.
 
         Args:
-            ctx (discord.ext.commands.Context): The context in which the view is created.
-            char_name (str): The name of the character whose stats are being managed.
-            stats_table_message (discord.Message): The message displaying the character's stats table.
-            max_clicks (int, optional): The maximum number of times a user can click the buttons to increase stats. Defaults to 2.
+            ctx (discord.ext.commands.Context): The context in which the view is invoked.
+            char_name (str): The name of the character.
+            stats_table_message (discord.Message): The message containing the character's stats table.
+            max_clicks (int, optional): The maximum number of clicks allowed for each button. Defaults to 2.
         """
-        super().__init__()  # Calling the constructor of the parent class
-        self.ctx = ctx  # Storing the context in which the view is created
-        self.char_name = char_name  # Storing the name of the character
-        self.max_clicks = max_clicks  # Storing the maximum number of clicks allowed
-        self.click_count = 0  # Initializing the click count to zero
-        self.message = None  # Initializing the message attribute
-        self.stats_table_message = stats_table_message  # Storing the message displaying the character's stats table
-        self.command_invoker_id = (
-            ctx.author.id
-        )  # Storing the ID of the user who invoked the command
+        super().__init__()
+        self.ctx = ctx  # Store the context
+        self.char_name = char_name  # Store the character name
+        self.max_clicks = max_clicks  # Store the maximum clicks allowed
+        self.click_count = 0  # Initialize click count to 0
+        self.message = None  # Initialize message to None
+        self.stats_table_message = stats_table_message  # Store the stats table message
+        self.command_invoker_id = ctx.author.id  # Store the command invoker ID
 
-        self.add_buttons()  # Adding buttons to the view
+        self.add_buttons()  # Add buttons for each character stat
 
-    def add_buttons(self):  # Method to add stat buttons to the view
-        """Adds stat buttons to the view."""
+    def add_buttons(self):
+        """Adds buttons for each character stat."""
         for stat_name in [
             "Strength",
             "Dexterity",
@@ -116,26 +114,23 @@ class MyView(discord.ui.View):  # Defining a custom Discord UI view
             "Charisma",
             "Wisdom",
         ]:
-            button = self.StatButton(stat_name, stat_name, self.max_clicks, self)
-            self.add_item(button)
+            button = self.StatButton(
+                stat_name, stat_name, self.max_clicks, self
+            )  # Create a new button
+            self.add_item(button)  # Add the button to the view
 
-    async def update_character_stat(
-        self, selected_stat
-    ):  # Method to update character stats
+    async def update_character_stat(self, selected_stat):
         """
-        Updates the character's stat.
+        Updates the character's stat and sends a message.
 
         Args:
-            selected_stat (str): The name of the stat to update.
+            selected_stat (str): The name of the selected stat to update.
         """
-        await Character.update_character_stat(self.ctx, self.char_name, selected_stat)
-        updated_stats_message = await Character.display_character_stats_lvl(
-            self.ctx, self.char_name, self.ctx.guild.id, self.stats_table_message
-        )
-        self.stats_table_message = (
-            updated_stats_message  # Updating the stats_table_message attribute
-        )
-        self.click_count += 1  # Incrementing the click count
+        await Character.update_character_stat(
+            self.ctx, self.char_name, selected_stat
+        )  # Update character stat
+        self.click_count += 1  # Increment click count
+        await self.send_message()  # Send a message with updated stats
 
     async def disable_buttons(self):  # Method to disable all buttons in the view
         """Disables all buttons in the view."""
@@ -148,15 +143,19 @@ class MyView(discord.ui.View):  # Defining a custom Discord UI view
 
     async def check_completion(
         self,
-    ):  # Method to check if the max click count is reached
-        """Checks if the max click count is reached and handles accordingly."""
-        if (
-            self.click_count >= self.max_clicks
-        ):  # Checking if the click count exceeds the maximum allowed clicks
-            await self.disable_buttons()  # Disabling all buttons in the view
-            await self.message.edit(  # Editing the message to indicate completion
-                content="Out of attribute points to spend.", view=self
-            )
+    ):
+        """Method to check if the max click count is reached."""
+        if self.click_count >= self.max_clicks:
+            # Checking if the click count exceeds the maximum allowed clicks
+            await self.disable_buttons()
+            if self.message:
+                # Edit the message to indicate completion without removing the stats table
+                await self.message.edit(
+                    content=f"{self.stats_content}\nOut of attribute points to spend.",
+                    view=self,
+                )
+        else:
+            await self.send_message()  # Update the stats table message if click count is not yet maxed
 
     async def on_timeout(
         self,
@@ -187,3 +186,64 @@ class MyView(discord.ui.View):  # Defining a custom Discord UI view
             )  # Sending an ephemeral message
             return False  # Returning False if user is not the command invoker
         return True  # Returning True if user is the command invoker
+
+    async def send_message(self):
+        """Send a message containing the character's stats table and the stat buttons."""
+        # Display character stats in a tabulated format
+        self.stats_content = await self.display_character_stats_lvl(
+            self.ctx, self.char_name, self.ctx.guild.id, self.stats_table_message
+        )
+
+        # Create a string containing the button instructions
+        message_content = (
+            f"{self.stats_content}Select which attribute you want to increase:"
+        )
+
+        # Check if a message already exists
+        if self.message:
+            # Update the existing message with the new content and view
+            await self.message.edit(content=message_content, view=self)
+        else:
+            # Send a new message with the content and view
+            message = await self.ctx.send(content=message_content, view=self)
+            self.message = message
+
+        return self.stats_content  # Return the stats table content for later use
+
+    @staticmethod
+    async def display_character_stats_lvl(
+        ctx, char_name, server_id, stats_message=None
+    ):
+        try:
+            # Construct directory path based on server ID
+            server_dir = f"server_{server_id}"
+            # Construct the full file path
+            filepath = os.path.join(server_dir, f"{char_name}_stats.csv")
+            # Open the CSV file
+            with open(filepath, newline="") as file:
+                # Create a CSV DictReader
+                reader = csv.DictReader(file)
+                # Initialize a list to store stats
+                stats = []
+                # Iterate through each row in the CSV
+                for row in reader:
+                    # Get the modifier and convert to int
+                    modifier = int(row["Modifier"])
+                    # Check if modifier is greater than or equal to 1
+                    if modifier >= 1:
+                        modifier_str = f"+{modifier}"
+                    else:
+                        modifier_str = str(modifier)
+                    # Append attribute, value, and modified modifier to stats list
+                    stats.append([row["Attribute"], row["Value"], modifier_str])
+                # Define headers for the tabulated output
+                headers = ["Attribute", "Value", "Modifier"]
+                # Generate a tabulated representation of the stats
+                stats_table = tabulate(stats, headers=headers, tablefmt="grid")
+
+            # Return the stats table content
+            return f"```{stats_table}```"
+
+        except Exception as e:
+            # Raise an exception if an error occurs
+            raise RuntimeError(f"An error occurred: {e}")
