@@ -18,7 +18,7 @@ class MyView(discord.ui.View):
             view (MyView): The MyView instance to which the button belongs.
         """
 
-        def __init__(self, stat_name, label, max_clicks, view):
+        def __init__(self, stat_name, label, max_clicks, view, stats_content):
             """
             Initializes the StatButton object.
 
@@ -47,6 +47,7 @@ class MyView(discord.ui.View):
             self._view = (
                 view  # Assigning the MyView instance to which the button belongs
             )
+            self.stats_content = stats_content
 
         @property
         def view(self):
@@ -71,14 +72,21 @@ class MyView(discord.ui.View):
 
             # Update character stat if click count is within limits
             if self.view and self.view.click_count < self.max_clicks:
-                await self.view.update_character_stat(
-                    self.stat_name
-                )  # Update the character stat
-                await interaction.response.edit_message(
-                    content=f"{self.stat_name} increased by 1", view=self.view
+                # Update the character stat
+                await self.view.update_character_stat(self.stat_name)
+
+                # Get the updated stats message content
+                increase_message = f"{self.stat_name} increased by 1"
+                self.view.stats_content = await self.view.send_message(
+                    increase_message=increase_message
                 )
-                # Get the stats message and edit it
-                stats_message = await self.view.send_message()
+
+                # Edit the message to include both the updated stats and the "increased by 1" message
+                await interaction.response.edit_message(
+                    content=f"{self.view.stats_content}{increase_message}",
+                    view=self.view,
+                )
+
                 await self.view.check_completion()  # Check if the max click count is reached
             else:
                 await self.view.disable_buttons()  # Disable all buttons
@@ -102,10 +110,34 @@ class MyView(discord.ui.View):
         self.stats_table_message = stats_table_message  # Store the stats table message
         self.command_invoker_id = ctx.author.id  # Store the command invoker ID
 
-        self.add_buttons()  # Add buttons for each character stat
+    @classmethod
+    async def create(cls, ctx, char_name, stats_table_message, max_clicks=2):
+        """
+        Creates a new instance of MyView.
 
-    def add_buttons(self):
-        """Adds buttons for each character stat."""
+        Args:
+            cls: The class reference.
+            ctx (discord.ext.commands.Context): The context in which the view is invoked.
+            char_name (str): The name of the character.
+            stats_table_message (discord.Message): The message containing the character's stats table.
+            max_clicks (int, optional): The maximum number of clicks allowed for each button. Defaults to 2.
+
+        Returns:
+            MyView: The created MyView instance.
+        """
+        # Create a new instance of MyView with the provided parameters
+        self = MyView(ctx, char_name, stats_table_message, max_clicks)
+        # Add buttons to the view instance
+        await self.add_buttons()
+        return self
+
+    async def add_buttons(self):
+        """
+        Adds buttons for each character stat.
+        """
+        # Send a message containing the character's stats table and store its content
+        self.stats_content = await self.send_message()
+        # Iterate over each character stat and create a button for it
         for stat_name in [
             "Strength",
             "Dexterity",
@@ -114,10 +146,16 @@ class MyView(discord.ui.View):
             "Charisma",
             "Wisdom",
         ]:
+            # Create a new button instance for the current stat
             button = self.StatButton(
-                stat_name, stat_name, self.max_clicks, self
+                stat_name,
+                stat_name,
+                self.max_clicks,
+                self,
+                self.stats_content,
             )  # Create a new button
-            self.add_item(button)  # Add the button to the view
+            # Add the button to the view
+            self.add_item(button)
 
     async def update_character_stat(self, selected_stat):
         """
@@ -130,7 +168,6 @@ class MyView(discord.ui.View):
             self.ctx, self.char_name, selected_stat
         )  # Update character stat
         self.click_count += 1  # Increment click count
-        await self.send_message()  # Send a message with updated stats
 
     async def disable_buttons(self):  # Method to disable all buttons in the view
         """Disables all buttons in the view."""
@@ -151,11 +188,9 @@ class MyView(discord.ui.View):
             if self.message:
                 # Edit the message to indicate completion without removing the stats table
                 await self.message.edit(
-                    content=f"{self.stats_content}\nOut of attribute points to spend.",
+                    content=f"{self.stats_content}Out of attribute points to spend.",
                     view=self,
                 )
-        else:
-            await self.send_message()  # Update the stats table message if click count is not yet maxed
 
     async def on_timeout(
         self,
@@ -187,7 +222,7 @@ class MyView(discord.ui.View):
             return False  # Returning False if user is not the command invoker
         return True  # Returning True if user is the command invoker
 
-    async def send_message(self):
+    async def send_message(self, increase_message=None):
         """Send a message containing the character's stats table and the stat buttons."""
         # Display character stats in a tabulated format
         self.stats_content = await self.display_character_stats_lvl(
@@ -195,9 +230,11 @@ class MyView(discord.ui.View):
         )
 
         # Create a string containing the button instructions
-        message_content = (
-            f"{self.stats_content}Select which attribute you want to increase:"
-        )
+        message_content = f"{self.stats_content}"
+        if increase_message:
+            message_content += f"{increase_message}"
+        else:
+            message_content += "Select which attribute you want to increase:"
 
         # Check if a message already exists
         if self.message:

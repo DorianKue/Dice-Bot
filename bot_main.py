@@ -349,13 +349,13 @@ async def lvl(ctx, *, name):
             return
         # Retrieve the stats table message if it already exists
         stats_message = None
-        async for message in ctx.channel.history(limit=2):
+        async for message in ctx.channel.history(limit=3):
             if message.author == ctx.guild.me and message.embeds:
                 if "Character's Stats" in message.embeds[0].title:
                     stats_message = message
                     break
         # Create an instance of MyView and send the message with the view
-        view = MyView(ctx, name, stats_message)
+        view = await MyView.create(ctx, name, stats_message)
         await view.send_message()
 
     except RuntimeError:
