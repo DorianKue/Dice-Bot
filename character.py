@@ -119,7 +119,8 @@ class Character:
                         }
                     )
             # Send confirmation message
-            await ctx.channel.send("Character stats have been saved.")
+            # await ctx.channel.send("Character stats have been saved.")
+            return "Character stats have been saved."
         except Exception as e:
             # Send error message if an exception occurs
             await ctx.send(

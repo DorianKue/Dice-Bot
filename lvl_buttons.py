@@ -217,7 +217,7 @@ class MyView(discord.ui.View):
             interaction.user.id != self.command_invoker_id
         ):  # Checking if the interaction user is not the command invoker
             await interaction.response.send_message(
-                "You don't have permission to do that.", ephemeral=True
+                "This is not your decision to make. :point_up: :nerd:", ephemeral=True
             )  # Sending an ephemeral message
             return False  # Returning False if user is not the command invoker
         return True  # Returning True if user is the command invoker

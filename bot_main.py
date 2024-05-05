@@ -1,7 +1,6 @@
 import discord
 from discord import (
     Intents,
-    Client,
 )  # Import necessary modules from Discord API
 from discord.ext import commands  # Import commands extension
 import random  # Import random module for generating random numbers
@@ -15,6 +14,8 @@ import re  # Import re module to use regular expressions
 from character import Character  # Import the Character class from character.py
 from lvl_buttons import MyView
 from help import CustomHelpCommand
+from yn_buttons import YView
+from rm_buttons import RView
 
 
 def bot_setup():
@@ -232,68 +233,80 @@ async def norm_roll(ctx, *, roll_input):
     name="roll_char",
     description="Create a character using dice rolls. Excludes the lowest roll! E.g. /roll_char 4d6 bob",
 )
-async def roll(ctx, roll_input: str, character_name: str):
+async def roll(ctx: discord.Interaction, roll_input: str, character_name: str):
     """
-    Roll stats for a character.
+    Roll character stats based on input and provide an option to reroll.
 
     Args:
-        ctx (discord.ext.commands.Context): The context object representing the invocation context.
-        roll_input (str): The input specifying the number of dice and sides for rolling character stats.
-        character_name (str): The name of the character to be created.
+        ctx (discord.Interaction): The context of the command.
+        roll_input (str): Input specifying the number of dice and sides (format: 'XdY').
+        character_name (str): The name of the character being created.
+
+    Raises:
+        ValueError: If the input format for 'roll_input' is invalid.
+        FileNotFoundError: If the character name already exists in the server directory.
+
+    Returns:
+        None
     """
     try:
-        # Parse input to get number of dice and sides
-        num_dice, sides = map(int, roll_input.split("d"))
-    except ValueError:
-        # Handle invalid input format
-        await ctx.send(
-            "Invalid input format. Please use the format 'XdY', where X is the number of dice and Y is the number of sides.",
-            ephemeral=True,
-        )
-        return
+        try:
+            # Parse input to get number of dice and sides
+            num_dice, sides = map(int, roll_input.split("d"))
+        except ValueError:
+            # Handle invalid input format
+            await ctx.send(
+                "Invalid input format. Please use the format 'XdY', where X is the number of dice and Y is the number of sides.",
+                ephemeral=True,
+            )
+            return
 
-    # Check if the number of dice is positive
-    if num_dice <= 0:
-        await ctx.send(
-            "Please specify a positive number of dice.",
-            ephemeral=True,
-        )
-        return
+        # Check if the number of dice is positive
+        if num_dice <= 0:
+            await ctx.send(
+                "Please specify a positive number of dice.",
+                ephemeral=True,
+            )
+            return
 
-    # Check if the character name already exists
-    if os.path.isfile(f"server_{ctx.guild.id}/{character_name}_stats.csv"):
-        await ctx.send(
-            f"Character with name '{character_name}' already exists. Please choose a different name.",
-            ephemeral=True,
-        )
-        return
+        # Check if the character name already exists
+        if os.path.isfile(f"server_{ctx.guild.id}/{character_name}_stats.csv"):
+            await ctx.send(
+                f"Character with name '{character_name}' already exists. Please choose a different name.",
+                ephemeral=True,
+            )
+            return
 
-    # Create character object and roll stats
-    player = Character(character_name, ctx.guild.id)
-    player.roll_stats(num_dice, sides)
+        # Create character object and roll stats
+        player = Character(character_name, ctx.guild.id)
+        player.roll_stats(num_dice, sides)
+        # Show stats
+        await ctx.send(player.show_stats(ctx))
 
-    # Show stats
-    await ctx.send(player.show_stats(ctx))
+        # Construct the Yes/No buttons view
+        view = YView(ctx, num_dice, sides, character_name)
+        reroll_message = await ctx.channel.send("Would you like to reroll?", view=view)
+        view.reroll_message = reroll_message
 
-    # Prompt for reroll
-    await ctx.channel.send("Would you like to reroll? (yes/no)")
-    try:
-        # Wait for the user's response to decide whether to reroll
-        response = await bot.wait_for(
-            "message", timeout=60, check=lambda message: message.author == ctx.author
-        )
-        reroll_choice = response.content.strip().lower()
-        if reroll_choice in ["yes", "y"]:
-            # Reroll if the user chooses to do so
-            player.roll_stats(num_dice, sides)
-            await ctx.channel.send(player.show_stats(ctx))
-    except asyncio.TimeoutError:
-        # Handle timeout if the user doesn't respond to the reroll prompt
-        await ctx.send("Timed out. Reroll canceled.", ephemeral=True)
-        return
+        try:
+            # Wait for button click interaction
+            interaction = await bot.wait_for(
+                "button_click",
+                timeout=120,
+                check=lambda interaction: interaction.message == reroll_message
+                and interaction.user == ctx.author,
+            )
+            view = YView(ctx, num_dice, sides, character_name)
 
-    # Save character stats to CSV
-    await player.save_to_csv(character_name, ctx)
+        except asyncio.TimeoutError:
+            # If timeout occurs, disable buttons and edit message
+            await view.disable_buttons()
+            await reroll_message.edit(
+                content="Reroll timed out. Character stats have been saved.", view=view
+            )
+            await player.save_to_csv(character_name, ctx)
+    except Exception as e:
+        await ctx.send(f"An error occurred: {e}", ephemeral=True)
 
 
 @bot.hybrid_command(
@@ -338,7 +351,8 @@ async def lvl(ctx, *, name):
             and not ctx.author.guild_permissions.administrator
         ):
             await ctx.send(
-                "You are not authorized to level up this character.", ephemeral=True
+                "You are not authorized to level up this character. :pleading_face: ",
+                ephemeral=True,
             )
             return
         # Retrieve the stats table message if it already exists
@@ -394,92 +408,34 @@ async def showall(ctx):
 )
 async def rm(ctx, *, name: str):
     """
-    Remove character stats file if the user has appropriate permissions.
+    Command to remove a saved character stats file.
 
     Args:
-        ctx (Context): The context object representing the invocation context.
-        name (str): The name of the character whose stats file needs to be removed.
+        ctx (discord.Context): The context of the command.
+        name (str): The name of the character whose stats file is to be removed.
     """
     try:
-        name = name.lower()
-        # Construct filepath for the character's stats file
-        server_dir = f"server_{ctx.guild.id}"  # Construct server directory name based on guild ID
-        filename = f"{name}_stats.csv"  # Construct filename based on character name
-        filepath = os.path.join(
-            server_dir, filename
-        )  # Combine server directory and filename to get full filepath
-
-        # Check if the character's stats file exists
-        if not os.path.isfile(filepath):  # Check if filepath points to a file
-            await ctx.send(
-                f"'{name}' savefile not found.", ephemeral=True
-            )  # Send error message if file doesn't exist
-            return
-
-        # Load the user ID who created the character from the CSV file
-        with open(filepath, newline="") as file:  # Open the character's stats file
-            reader = csv.DictReader(file)  # Create a CSV DictReader object
-            creator_id = None
-            for row in reader:  # Iterate through each row in the CSV
-                if (
-                    row["Name"].lower() == name
-                ):  # Check if the row corresponds to the character name
-                    creator_id = int(
-                        row.get("CreatorID", 0)
-                    )  # Get the ID of the creator from the CSV
-                    break  # Stop iterating if the character is found
-
-            if creator_id is None:
-                # Check if the user is allowed to access the directory
-                if not os.access(server_dir, os.R_OK):
-                    await ctx.send(
-                        f"Unable to access '{name}' savefile.",
-                        ephemeral=True,
-                    )  # Send error message if access is denied
-                    return
-
-                await ctx.send(
-                    f"Unable to determine creator of character '{name}'.",
-                    ephemeral=True,
-                )  # Send error message if creator ID not found
-                return
-
-        # Check if the user is the creator of the character or has admin permissions
-        if (
-            ctx.author.id == creator_id or ctx.author.guild_permissions.administrator
-        ):  # Check user permissions
-            # Prompt for confirmation before deletion
-            await ctx.send(
-                f"Are you sure you want to delete the savefile of '{name}'? (y/n)"
-            )
-            response = await bot.wait_for(  # Wait for user response
-                "message",
+        name = name.lower()  # Convert the character name to lowercase
+        view = RView(ctx, name)  # Create an instance of RView
+        conf_msg = await ctx.send(  # Send confirmation message with the view
+            f"Are you sure you want to delete the savefile of '{name}'? :cry:",
+            view=view,
+        )
+        view.conf_msg = conf_msg  # Attach the confirmation message to the view
+        try:
+            interaction = await bot.wait_for(  # Wait for user response
+                "button_click",
                 timeout=60,
-                check=lambda message: message.author == ctx.author
-                and message.content.lower() in ["y", "yes", "no", "n"],
+                check=lambda interaction: interaction.message == conf_msg
+                and interaction.user == ctx.author,
             )
-            # Delete file if confirmed by the user
-            if response.content.lower() in ["y", "yes"]:  # Check user confirmation
-                os.remove(filepath)  # Delete the character's stats file
-                await ctx.channel.send(
-                    f"File '{filename}' deleted successfully."
-                )  # Send success message
-            else:
-                await ctx.send(
-                    "Deletion canceled", ephemeral=True
-                )  # Send cancellation message if user cancels
-        else:
-            await ctx.send(
-                "You are not authorized to delete this character.", ephemeral=True
-            )  # Send error message if user lacks permissions
-    except asyncio.TimeoutError:  # Handle timeout exception
-        await ctx.send(
-            "Timed out. Deletion canceled.", ephemeral=True
-        )  # Send message if deletion times out
-    except Exception as e:  # Handle other exceptions
-        await ctx.send(
-            f"An error occurred: {e}", ephemeral=True
-        )  # Send error message if other exception occurs
+        except asyncio.TimeoutError:  # If timeout occurs
+            # Disable buttons and edit message to indicate timeout
+            await view.disable_buttons()
+            await conf_msg.edit(content="Deletion canceled due to timeout.", view=view)
+    except Exception as e:
+        # Catch any exceptions and send an error message
+        await ctx.send(f"An error occurred: {e}", ephemeral=True)
 
 
 @bot.hybrid_command(name="wrist", description="Big sad :(")
