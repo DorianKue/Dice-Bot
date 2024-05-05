@@ -38,8 +38,8 @@ class CustomHelpCommand(commands.Cog):
         # Add a field for creating a character
         embed.add_field(
             name="Create a character using dice rolls (__Excludes__ the lowest roll):",  # Title of the field
-            value="`/roll_char XdY` - where X is the number of dice and Y is the sides of dice.\n"
-            "Example: `/roll_char 4d6` to roll 4 dice with 6 sides.\nThe bot will ask you for your Characters name *after* the initial roll command.",  # Value of the field
+            value="`/roll_char XdY Name` - where X is the number of dice, Y is the sides of dice and Name is the name of your Character.\n"
+            "Example: `/roll_char 4d6 bob` to roll 4 dice with 6 sides.",  # Value of the field
             inline=False,  # Display the field in a new line
         )
 

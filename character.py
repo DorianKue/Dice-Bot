@@ -57,7 +57,7 @@ class Character:
             modifier = (stat_value - 10) // 2  # Calculate the modifier
             return modifier  # Return the calculated modifier
 
-    async def show_stats(self, ctx):
+    def show_stats(self, ctx):
         """Display the character's stats."""
         table = []  # Initialize an empty list for the table
         for key, value in self.stats.items():  # Iterate through each stat
@@ -75,7 +75,7 @@ class Character:
         stats_table = tabulate(
             table, headers=headers, tablefmt="grid"
         )  # Format table using tabulate
-        await ctx.send(f"```{stats_table}```")  # Send the formatted table to Discord
+        return f"```{stats_table}```"  # return the formatted table to Discord
 
     async def save_to_csv(self, char_name, ctx):
         """
@@ -119,7 +119,7 @@ class Character:
                         }
                     )
             # Send confirmation message
-            await ctx.send("Character stats have been saved.")
+            await ctx.channel.send("Character stats have been saved.")
         except Exception as e:
             # Send error message if an exception occurs
             await ctx.send(

@@ -27,10 +27,6 @@ def bot_setup():
     # Create Discord bot instance with specified intents
     intents = Intents.default()
     intents.message_content = True
-    client = Client(
-        intents=intents
-    )  # Initialize a Discord client with the specified intent
-
     bot = commands.Bot(
         command_prefix=["/"],  # Define the prefix for command invocation
         intents=intents,  # Specify the intents for the bot to receive from Discord
@@ -103,6 +99,8 @@ async def on_ready():
 @bot.event
 async def on_message(message):
     """Process incoming messages."""
+    if message.author.id == bot.user.id:
+        return
     # Call update_commands whenever a new CSV file is created
     if message.attachments:  # Check if there are any attachments in the message
         for attachment in message.attachments:  # Iterate through each attachment
@@ -232,15 +230,16 @@ async def norm_roll(ctx, *, roll_input):
 
 @bot.hybrid_command(
     name="roll_char",
-    description="Create a character using dice rolls. Excludes the lowest roll! E.g. /roll_char 4d6",
+    description="Create a character using dice rolls. Excludes the lowest roll! E.g. /roll_char 4d6 bob",
 )
-async def roll(ctx, *, roll_input: str):
+async def roll(ctx, roll_input: str, character_name: str):
     """
     Roll stats for a character.
 
     Args:
-        ctx: The context object representing the invocation context.
+        ctx (discord.ext.commands.Context): The context object representing the invocation context.
         roll_input (str): The input specifying the number of dice and sides for rolling character stats.
+        character_name (str): The name of the character to be created.
     """
     try:
         # Parse input to get number of dice and sides
@@ -261,17 +260,12 @@ async def roll(ctx, *, roll_input: str):
         )
         return
 
-    # Prompt for character name
-    await ctx.send("What's the name of your character?")
-    try:
-        # Wait for the user's response to get the character name
-        response = await bot.wait_for(
-            "message", timeout=60, check=lambda message: message.author == ctx.author
+    # Check if the character name already exists
+    if os.path.isfile(f"server_{ctx.guild.id}/{character_name}_stats.csv"):
+        await ctx.send(
+            f"Character with name '{character_name}' already exists. Please choose a different name.",
+            ephemeral=True,
         )
-        character_name = response.content.strip()
-    except asyncio.TimeoutError:
-        # Handle timeout if the user doesn't provide a character name
-        await ctx.send("Timed out. Character name not provided.", ephemeral=True)
         return
 
     # Create character object and roll stats
@@ -279,10 +273,10 @@ async def roll(ctx, *, roll_input: str):
     player.roll_stats(num_dice, sides)
 
     # Show stats
-    await player.show_stats(ctx)
+    await ctx.send(player.show_stats(ctx))
 
     # Prompt for reroll
-    await ctx.send("Would you like to reroll? (yes/no)")
+    await ctx.channel.send("Would you like to reroll? (yes/no)")
     try:
         # Wait for the user's response to decide whether to reroll
         response = await bot.wait_for(
@@ -292,7 +286,7 @@ async def roll(ctx, *, roll_input: str):
         if reroll_choice in ["yes", "y"]:
             # Reroll if the user chooses to do so
             player.roll_stats(num_dice, sides)
-            await player.show_stats(ctx)
+            await ctx.channel.send(player.show_stats(ctx))
     except asyncio.TimeoutError:
         # Handle timeout if the user doesn't respond to the reroll prompt
         await ctx.send("Timed out. Reroll canceled.", ephemeral=True)
@@ -396,7 +390,7 @@ async def showall(ctx):
 
 
 @bot.hybrid_command(
-    name="rm", description="Remove saved character stats file. E.g. /rm Bob"
+    name="rm", description="Remove saved character stats file. E.g. /rm bob"
 )
 async def rm(ctx, *, name: str):
     """
@@ -467,7 +461,7 @@ async def rm(ctx, *, name: str):
             # Delete file if confirmed by the user
             if response.content.lower() in ["y", "yes"]:  # Check user confirmation
                 os.remove(filepath)  # Delete the character's stats file
-                await ctx.send(
+                await ctx.channel.send(
                     f"File '{filename}' deleted successfully."
                 )  # Send success message
             else:
