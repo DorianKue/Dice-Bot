@@ -3,7 +3,7 @@ from discord import (
     Intents,
 )  # Import necessary modules from Discord API
 from discord.ext import commands  # Import commands extension
-import random  # Import random module for generating random numbers
+from random import randint  # Import random module for generating random numbers
 from dotenv import (
     load_dotenv,
 )  # Import load_dotenv function to load environment variables
@@ -169,7 +169,7 @@ async def help(ctx):
 
 @bot.hybrid_command(
     name="roll",
-    description="Roll a specified number of dice with a specified number of sides and an optional modifier.",
+    description="Roll X number of dice with Y number of sides and an optional modifier. E.g. /roll 4d6 or /roll 4d6+2",
 )
 async def norm_roll(ctx, *, roll_input):
     """
@@ -203,7 +203,7 @@ async def norm_roll(ctx, *, roll_input):
             return
 
         # Roll the dice and calculate the total
-        rolls = [random.randint(1, sides) for _ in range(num_dice)]  # Roll the dice
+        rolls = [randint(1, sides) for _ in range(num_dice)]  # Roll the dice
         total = sum(rolls) + modifier  # Calculate the total by adding the modifier
 
         # Send the roll results to the channel
@@ -320,7 +320,7 @@ async def roll(ctx: discord.Interaction, roll_input: str, character_name: str):
 
 
 @bot.hybrid_command(
-    name="stats", description="Display character stats. E.g. /stats Bob"
+    name="stats", description="Display character stats. E.g. /stats bob"
 )
 async def stats(ctx, *, name: str):
     """
@@ -349,7 +349,7 @@ async def stats(ctx, *, name: str):
 
 @bot.hybrid_command(
     name="lvl",
-    description="Add 2 stat points of your choosing to your character.",
+    description="Add 2 stat points of your choosing to your character. E.g. /lvl bob",
 )
 async def lvl(
     ctx,
@@ -513,6 +513,65 @@ async def rm(ctx, *, name: str):
     except Exception as e:
         # Catch any exceptions and send an error message
         await ctx.send(f"An error occurred: {e}", ephemeral=True)
+
+
+@bot.hybrid_command(
+    name="random", description="Roll a random number. E.g /random 1-100 or /random 69."
+)
+async def random(ctx, *, number):
+    """
+    Generates a random number within a specified range or up to a specified number.
+
+    Parameters:
+        ctx (discord.Context): The context object for the command.
+        number (str): Input provided by the user in the format "<min>-<max>" or "<max>".
+
+    Returns:
+        None
+    """
+    # Regular expression pattern to match the input format
+    pattern = r"(\d+)(-)?(\d+)?"
+    match = re.match(pattern, number)
+
+    if match:
+        # Extract the first number from the input
+        x = int(match.group(1))
+
+        # Check if the first number is positive
+        if x <= 0:
+            await ctx.send(
+                "Please enter a positive number", ephemeral=True, delete_after=20
+            )
+            return
+
+        # If the input contains a range (e.g., "min-max")
+        if match.group(2):
+            # Extract the second number from the input
+            y = int(match.group(3))
+
+            # Check if the second number is positive and greater than or equal to the first number
+            if y <= 0 or y < x:
+                await ctx.send(
+                    "Please enter a positive number that's equal or greater than the first number.",
+                    ephemeral=True,
+                    delete_after=20,
+                )
+                return
+
+            # Generate a random integer within the specified range
+            random_int = randint(x, y)
+            await ctx.send(f"{random_int}")
+        else:
+            # If the input contains only one number, generate a random integer up to that number
+            random_int = randint(1, x)
+            await ctx.send(f"{random_int}")
+    else:
+        # If the input format is invalid, send an error message
+        await ctx.send(
+            "Invalid input. Please use '/random <number>' or '/random <min>-<max>' and use only positive numbers.",
+            ephemeral=True,
+            delete_after=20,
+        )
 
 
 @bot.hybrid_command(name="wrist", description="Big sad :(")

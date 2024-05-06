@@ -76,6 +76,14 @@ class CustomHelpCommand(commands.Cog):
             inline=False,  # Display the field in a new line
         )
 
+        # Add a field for random command
+        embed.add_field(
+            name="Roll a random number:",  # Title of the field
+            value="`/random X` - To roll a number between 1 and `X` where X has to be a positive number. \nExample: `/random 100`\n"
+            "You can also use `/random X-Y` - To roll a number between `X` and `Y` where X and Y have to be a positive number. \n Example: `/random 69-100`\n",  # Value of the field
+            inline=False,  # Display the field in a new line
+        )
+
         # Iterate through each command and add its name and description to the embed
         for cog, commands_list in self.bot.cogs.items():
             if cog:  # Check if the command belongs to a cog
