@@ -195,7 +195,11 @@ async def norm_roll(ctx, *, roll_input):
 
         # Check if the number of dice is positive
         if num_dice <= 0:
-            await ctx.send("Please specify a positive number of dice.", ephemeral=True)
+            await ctx.send(
+                "Please specify a positive number of dice.",
+                ephemeral=True,
+                delete_after=10,
+            )
             return
 
         # Roll the dice and calculate the total
@@ -226,6 +230,7 @@ async def norm_roll(ctx, *, roll_input):
         await ctx.send(
             "Invalid input format. Please use the format 'XdY' or 'XdY+/-Z', where X is the number of dice, Y is the number of sides, and Z is the modifier.",
             ephemeral=True,
+            delete_after=20,
         )
 
 
@@ -258,6 +263,7 @@ async def roll(ctx: discord.Interaction, roll_input: str, character_name: str):
             await ctx.send(
                 "Invalid input format. Please use the format 'XdY', where X is the number of dice and Y is the number of sides.",
                 ephemeral=True,
+                delete_after=20,
             )
             return
 
@@ -266,6 +272,7 @@ async def roll(ctx: discord.Interaction, roll_input: str, character_name: str):
             await ctx.send(
                 "Please specify a positive number of dice.",
                 ephemeral=True,
+                delete_after=10,
             )
             return
 
@@ -274,6 +281,7 @@ async def roll(ctx: discord.Interaction, roll_input: str, character_name: str):
             await ctx.send(
                 f"Character with name '{character_name}' already exists. Please choose a different name.",
                 ephemeral=True,
+                delete_after=30,
             )
             return
 
@@ -302,7 +310,9 @@ async def roll(ctx: discord.Interaction, roll_input: str, character_name: str):
             # If timeout occurs, disable buttons and edit message
             await view.disable_buttons()
             await reroll_message.edit(
-                content="Reroll timed out. Character stats have been saved.", view=view
+                content="Reroll timed out. Character stats have been saved.",
+                view=view,
+                delete_after=120,
             )
             await player.save_to_csv(character_name, ctx)
     except Exception as e:
@@ -332,27 +342,60 @@ async def stats(ctx, *, name: str):
         # Call the wrapper function to display character stats
         await display_character_stats_wrapper(ctx)
     except FileNotFoundError:
-        await ctx.send(f"'{name}' savefile not found.", ephemeral=True)
+        await ctx.send(f"'{name}' savefile not found.", ephemeral=True, delete_after=15)
     except Exception as e:
         await ctx.send(f"An error occurred: {e}", ephemeral=True)
 
 
 @bot.hybrid_command(
     name="lvl",
-    description="Add 2 stat points of your choosing to your character. E.g. /lvl Bob",
+    description="Add 2 stat points of your choosing to your character.",
 )
-async def lvl(ctx, *, name):
+async def lvl(
+    ctx,
+    *,
+    name,
+):
+    """
+    Allows the user to add 2 stat points of their choosing to a character.
+
+    Parameters:
+    - ctx (commands.Context): The context of the command.
+    - name (str): The name of the character to level up.
+
+    Raises:
+    - RuntimeError: If the character's savefile is not found.
+    - Exception: If any other error occurs during execution.
+
+    Returns:
+    - None
+
+    The function first checks the authorization of the user to level up the character,
+    ensuring they are either the creator of the character or have admin permissions.
+
+    It then attempts to retrieve the latest stats message for the character.
+
+    Next, it creates an instance of the MyView class, which handles the interactive
+    button-based interface for leveling up the character.
+
+    If the user does not interact with the buttons within 180 seconds, the function
+    handles the timeout by disabling the buttons.
+
+    If any errors occur during execution, appropriate error messages are sent.
+    """
     try:
-        name = name.lower()
+        name = name.lower()  # Normalize character name to lowercase
         # Check if the user is the creator of the character or has admin permissions
         creator_id = await get_character_creator_id(name, ctx.guild.id)
         if (
             ctx.author.id != creator_id
             and not ctx.author.guild_permissions.administrator
         ):
+            # Send an error message if the user is not authorized
             await ctx.send(
                 "You are not authorized to level up this character. :pleading_face: ",
                 ephemeral=True,
+                delete_after=10,
             )
             return
         # Retrieve the stats table message if it already exists
@@ -364,11 +407,23 @@ async def lvl(ctx, *, name):
                     break
         # Create an instance of MyView and send the message with the view
         view = await MyView.create(ctx, name, stats_message)
-        await view.send_message()
-
+        msg = await view.send_message()
+        try:
+            # Wait for button click interaction within 180 seconds
+            interaction = await bot.wait_for(
+                "button_click",
+                timeout=180,
+                check=lambda interaction: interaction.message == msg
+                and interaction.user == ctx.author,
+            )
+        # Handle timeouts and disable buttons on timeout
+        except asyncio.TimeoutError:
+            await view.on_timeout()
     except RuntimeError:
-        await ctx.send(f"'{name}' savefile not found.", ephemeral=True)
+        # Send an error message if the character's savefile is not found
+        await ctx.send(f"'{name}' savefile not found.", ephemeral=True, delete_after=15)
     except Exception as e:
+        # Send an error message if any other exception occurs
         await ctx.send(f"An error occurred: {e}", ephemeral=True)
 
 
@@ -393,7 +448,7 @@ async def showall(ctx):
         char_list = "\n".join([f"• {name}" for name in char_names])
         # Send the list of character names as a message
         if len(char_list) == 0:
-            await ctx.send("No characters found")
+            await ctx.send("No characters found", ephemeral=True, delete_after=30)
         else:
             await ctx.send(f"**`Saved characters`**:\n{char_list}")
     except FileNotFoundError:
@@ -416,7 +471,27 @@ async def rm(ctx, *, name: str):
     """
     try:
         name = name.lower()  # Convert the character name to lowercase
+        creator_id = await get_character_creator_id(name, ctx.guild.id)
+        if (
+            ctx.author.id != creator_id
+            and not ctx.author.guild_permissions.administrator
+        ):
+            # Send an error message if the user is not authorized
+            await ctx.send(
+                "You are not authorized to delete this character. :pleading_face:",
+                ephemeral=True,
+                delete_after=10,
+            )
+            return
         view = RView(ctx, name)  # Create an instance of RView
+        server_dir = f"server_{ctx.guild.id}"  # Construct server directory name
+        filename = f"{name}_stats.csv"  # Construct filename
+        filepath = os.path.join(server_dir, filename)  # Construct full filepath
+        if not os.path.isfile(filepath):  # Check if file exists
+            await ctx.send(
+                f"'{name}' savefile not found.", ephemeral=True, delete_after=20
+            )  # Send error message if file doesn't exist
+            return
         conf_msg = await ctx.send(  # Send confirmation message with the view
             f"Are you sure you want to delete the savefile of '{name}'? :cry:",
             view=view,
@@ -432,7 +507,9 @@ async def rm(ctx, *, name: str):
         except asyncio.TimeoutError:  # If timeout occurs
             # Disable buttons and edit message to indicate timeout
             await view.disable_buttons()
-            await conf_msg.edit(content="Deletion canceled due to timeout.", view=view)
+            await conf_msg.edit(
+                content="Deletion canceled due to timeout.", view=view, delete_after=120
+            )
     except Exception as e:
         # Catch any exceptions and send an error message
         await ctx.send(f"An error occurred: {e}", ephemeral=True)

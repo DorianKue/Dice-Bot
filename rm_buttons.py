@@ -53,11 +53,15 @@ class RView(discord.ui.View):
         if interaction.user == self.ctx.author:
             await self.disable_buttons()
             await interaction.response.edit_message(
-                content="Deletion canceled :smiling_face_with_tear:", view=self
+                content="Deletion canceled :smiling_face_with_tear:",
+                view=self,
+                delete_after=60,
             )
         else:
             await interaction.response.send_message(
-                "This is not your decision to make. :point_up: :nerd:", ephemeral=True
+                "This is not your decision to make. :point_up: :nerd:",
+                ephemeral=True,
+                delete_after=10,
             )
 
     @discord.ui.button(label="Yes", custom_id="ybutton", style=discord.ButtonStyle.red)
@@ -77,11 +81,7 @@ class RView(discord.ui.View):
             )
             filename = f"{self.name}_stats.csv"  # Construct filename
             filepath = os.path.join(server_dir, filename)  # Construct full filepath
-            if not os.path.isfile(filepath):  # Check if file exists
-                await self.ctx.send(
-                    f"'{self.name}' savefile not found.", ephemeral=True
-                )  # Send error message if file doesn't exist
-                return
+
             with open(filepath, newline="") as file:  # Open the character's stats file
                 reader = csv.DictReader(file)  # Create a CSV DictReader object
                 creator_id = None
@@ -98,6 +98,7 @@ class RView(discord.ui.View):
                         await self.ctx.send(
                             f"Unable to access '{self.name}' savefile.",
                             ephemeral=True,
+                            delete_after=30,
                         )  # Send error message if access is denied
                         return
 
@@ -117,5 +118,7 @@ class RView(discord.ui.View):
                 )  # Confirm deletion
         else:
             await interaction.response.send_message(
-                "You can't delete the character of someone else. :rage:", ephemeral=True
+                "You can't delete the character of someone else. :rage:",
+                ephemeral=True,
+                delete_after=10,
             )  # Send error message if unauthorized

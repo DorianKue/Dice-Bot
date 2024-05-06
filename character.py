@@ -171,7 +171,7 @@ class Character:
                 # Return the message object
                 return message
         except FileNotFoundError:
-            await ctx.send(f"'{char_name}' savefile not found.", ephemeral=True)
+            await ctx.send(f"'{char_name}' savefile not found.", ephemeral=True, delete_after=120)
         except Exception as e:
             # Send error message if an exception occurs
             await ctx.send(f"An error occurred: {e}", ephemeral=True)

@@ -197,9 +197,10 @@ class MyView(discord.ui.View):
     ):  # Method to handle button disablement when the view times out
         """Handles button disablement when the view times out."""
         await self.disable_buttons()  # Disabling all buttons in the view
-        await self.message.edit(
-            view=self
-        )  # Editing the message to reflect disabled buttons
+        timeout_message = "Level up canceled due to timeout."
+        if self.message:
+            # Edit the original message to indicate the timeout
+            await self.message.edit(content=timeout_message, view=self)
 
     async def button_check(
         self, interaction
@@ -217,7 +218,9 @@ class MyView(discord.ui.View):
             interaction.user.id != self.command_invoker_id
         ):  # Checking if the interaction user is not the command invoker
             await interaction.response.send_message(
-                "This is not your decision to make. :point_up: :nerd:", ephemeral=True
+                content="This is not your decision to make. :point_up: :nerd:",
+                ephemeral=True,
+                delete_after=10,
             )  # Sending an ephemeral message
             return False  # Returning False if user is not the command invoker
         return True  # Returning True if user is the command invoker
