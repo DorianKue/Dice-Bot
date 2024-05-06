@@ -3,7 +3,7 @@ from discord import (
     Intents,
 )  # Import necessary modules from Discord API
 from discord.ext import commands  # Import commands extension
-from random import randint  # Import random module for generating random numbers
+from random import randint, choice  # Import random module for generating random numbers
 from dotenv import (
     load_dotenv,
 )  # Import load_dotenv function to load environment variables
@@ -158,7 +158,9 @@ async def update_commands():
             bot.command(name=f"{character_name}_stats")(display_character_stats_wrapper)
 
 
-@bot.hybrid_command(name="help", description="Shows all available commands.")
+@bot.hybrid_command(
+    name="help", description="Shows all available commands and how to use them."
+)
 async def help(ctx):
     try:
         help_embed = await custom_help_command.send_bot_help(ctx, None)
@@ -574,8 +576,43 @@ async def random(ctx, *, number):
         )
 
 
+@bot.hybrid_command(name="coinflip", description="Flip a coin!")
+async def coinflip(ctx):
+    """
+    Flips a coin.
+
+    Parameters:
+        ctx (discord.Context): The context object for the command.
+
+    Returns:
+        None
+    """
+    try:
+        coin = choice(
+            ["Heads", "Tails"]
+        )  # Using random.choice to return either Heads or Tails
+        await ctx.send(
+            "Flipping a coin..."
+        )  # Sending a message first so that the acitivity or command doesn't time out
+        await ctx.channel.send(
+            file=discord.File("coin-flip.gif")
+        )  # Sending a gif of a coinflip
+        await asyncio.sleep(
+            1.45
+        )  # Wait for the gif to loop roughly once before displaying the result
+        await ctx.channel.send(f"{coin}!")
+    except Exception as e:
+        await ctx.send(f"An error occurred: {e}")
+
+
 @bot.hybrid_command(name="wrist", description="Big sad :(")
 async def wrist(ctx):
+    """
+    Joke command because after i mentioned "slash" commands to him, he suggested to make a command called wrist lol.
+
+    Parameters:
+        ctx (discord.Context): The context object for the command.
+    """
     try:
         name = ctx.message.author.display_name
         await ctx.send(f"R.I.P {name}")

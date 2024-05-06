@@ -84,6 +84,13 @@ class CustomHelpCommand(commands.Cog):
             inline=False,  # Display the field in a new line
         )
 
+        # Add a field for coinflip command
+        embed.add_field(
+            name="A coinflip:",  # Title of the field
+            value="`/coinflip` - That's it. It flips a coin and returns Heads or Tails",  # Value of the field
+            inline=False,  # Display the field in a new line
+        )
+
         # Iterate through each command and add its name and description to the embed
         for cog, commands_list in self.bot.cogs.items():
             if cog:  # Check if the command belongs to a cog
