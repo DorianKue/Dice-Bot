@@ -9,7 +9,7 @@ class YView(
     A custom view for handling Yes/No buttons.
     """
 
-    def __init__(self, ctx, num_dice, sides, character_name):
+    def __init__(self, ctx, num_dice, sides, character_name, player):
         """
         Initializes the YView.
 
@@ -23,6 +23,7 @@ class YView(
         self.num_dice = num_dice  # Store the number of dice
         self.sides = sides  # Store the number of sides on each die
         self.character_name = character_name  # Store the name of the character
+        self.player = player
         super().__init__()  # Call the __init__() method of the parent class
 
     async def disable_buttons(self):
@@ -48,15 +49,12 @@ class YView(
         if (
             interaction.user == self.ctx.author
         ):  # Check if the user interacting is the author of the command
-            player = Character(
-                self.character_name, self.ctx.guild.id
-            )  # Create a Character object
             await self.disable_buttons()  # Disable all buttons in the view
             await interaction.response.edit_message(
                 content="Reroll canceled.", view=self
             )  # Edit the original message
             await self.ctx.channel.send(
-                await player.save_to_csv(self.character_name, self.ctx)
+                await self.player.save_to_csv(self.character_name, self.ctx)
             )  # Save character stats to CSV
         else:
             await interaction.response.send_message(

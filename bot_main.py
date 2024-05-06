@@ -294,7 +294,7 @@ async def roll(ctx: discord.Interaction, roll_input: str, character_name: str):
         await ctx.send(player.show_stats(ctx))
 
         # Construct the Yes/No buttons view
-        view = YView(ctx, num_dice, sides, character_name)
+        view = YView(ctx, num_dice, sides, character_name, player)
         reroll_message = await ctx.channel.send("Would you like to reroll?", view=view)
         view.reroll_message = reroll_message
 
