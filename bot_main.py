@@ -14,8 +14,8 @@ import re  # Import re module to use regular expressions
 from character import Character  # Import the Character class from character.py
 from lvl_buttons import MyView
 from help import CustomHelpCommand
-from yn_buttons import YView
 from rm_buttons import RView
+from racebutton import RCView
 
 
 def bot_setup():
@@ -287,37 +287,31 @@ async def roll(ctx: discord.Interaction, roll_input: str, character_name: str):
             )
             return
 
-        # Create character object and roll stats
-        player = Character(character_name, ctx.guild.id)
-        player.roll_stats(num_dice, sides)
-        # Show stats
-        await ctx.send(player.show_stats(ctx))
+        # Create an instance of RCView for race selection
+        raceview = await RCView.create(
+            ctx, character_name, num_dice, sides, race_name=None
+        )
 
-        # Construct the Yes/No buttons view
-        view = YView(ctx, num_dice, sides, character_name, player)
-        reroll_message = await ctx.channel.send("Would you like to reroll?", view=view)
-        view.reroll_message = reroll_message
+        # Send message to choose race with the created view
+        message = await ctx.send("Choose your race:", view=raceview)
 
+        # Wait for the user to click a button for race selection
         try:
-            # Wait for button click interaction
-            interaction = await bot.wait_for(
+            race_interaction = await bot.wait_for(
                 "button_click",
                 timeout=120,
-                check=lambda interaction: interaction.message == reroll_message
+                check=lambda interaction: ctx.message == message
                 and interaction.user == ctx.author,
             )
-            view = YView(ctx, num_dice, sides, character_name)
-
+            print("Button clicked!")
         except asyncio.TimeoutError:
-            # If timeout occurs, disable buttons and edit message
-            await view.disable_buttons()
-            await reroll_message.edit(
-                content="Reroll timed out. Character stats have been saved.",
-                view=view,
-                delete_after=120,
+            # Handle timeout for race selection
+            await raceview.on_timeout()
+            await ctx.send(
+                "Race selection timed out.", ephemeral=True, delete_after=120
             )
-            await player.save_to_csv(character_name, ctx)
     except Exception as e:
+        # Handle any other exceptions
         await ctx.send(f"An error occurred: {e}", ephemeral=True)
 
 
@@ -445,15 +439,37 @@ async def showall(ctx):
         # Get a list of files in the server directory
         files = os.listdir(server_dir)
         # Extract character names from filenames
-        char_names = [filename.split("_stats.csv")[0] for filename in files]
-        # Format the character names with bullet points and new lines
-        char_list = "\n".join([f"• {name}" for name in char_names])
-        # Send the list of character names as a message
-        if len(char_list) == 0:
+        char_info = []
+        for filename in files:
+            # Open each file in the server directory
+            with open(os.path.join(server_dir, filename), newline="") as file:
+                # Create a CSV DictReader to read the file
+                reader = csv.DictReader(file)
+                try:
+                    first_row = next(reader)  # Read the first row
+                    second_row = next(reader)  # Read the second row
+                except StopIteration:
+                    continue  # Skip files with fewer than two rows
+
+                # Get the race from the first row of the file
+                race = first_row.get("Race", "")
+                # Extract character name from the filename
+                char_name = filename.split("_stats.csv")[0]
+                # Append character name and race to the char_info list
+                char_info.append((char_name, race))
+        # Check if char_info is empty
+        if not char_info:
+            # Send message if no characters are found
             await ctx.send("No characters found", ephemeral=True, delete_after=30)
         else:
+            # Create a formatted list of character names and races
+            char_list = "\n".join(
+                [f"• `Name`: {name}  `Race`: {race}" for name, race in char_info]
+            )
+            # Send message with list of saved characters
             await ctx.send(f"**`Saved characters`**:\n{char_list}")
     except FileNotFoundError:
+        # Send message if no saves are found
         await ctx.send("No saves yet")
     except Exception as e:
         # Send an error message if an exception occurs
@@ -480,9 +496,9 @@ async def rm(ctx, *, name: str):
         ):
             # Send an error message if the user is not authorized
             await ctx.send(
-                "You are not authorized to delete this character. :pleading_face:",
+                "Either you are not authorized to delete this character or the savefile is corrupt. :pleading_face:\n If this was yours, contact an admin. They will be able to remove it",
                 ephemeral=True,
-                delete_after=10,
+                delete_after=20,
             )
             return
         view = RView(ctx, name)  # Create an instance of RView

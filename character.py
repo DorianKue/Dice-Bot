@@ -57,7 +57,7 @@ class Character:
             modifier = (stat_value - 10) // 2  # Calculate the modifier
             return modifier  # Return the calculated modifier
 
-    def show_stats(self, ctx):
+    def show_stats(self, ctx, race_name):
         """Display the character's stats."""
         table = []  # Initialize an empty list for the table
         for key, value in self.stats.items():  # Iterate through each stat
@@ -71,13 +71,13 @@ class Character:
             table.append(
                 [key, value, modifier_str]
             )  # Append stat, value, and modifier to the table
-        headers = ["Attribute", "Value", "Modifier"]  # Define table headers
+        headers = ["Attribute", "Value", "Modifier", "Race"]  # Define table headers
         stats_table = tabulate(
             table, headers=headers, tablefmt="grid"
         )  # Format table using tabulate
-        return f"```{stats_table}```"  # return the formatted table to Discord
+        return f"Race: {race_name}\n```{stats_table}```"  # return the formatted table to Discord
 
-    async def save_to_csv(self, char_name, ctx):
+    async def save_to_csv(self, char_name, race_name, ctx):
         """
         Save the character's stats to a CSV file.
 
@@ -99,7 +99,7 @@ class Character:
             # Open the file in append mode if it exists, otherwise in write mode - For now only in write mode. Don't want to append but left it in, in case i need it.
             with open(filepath, "w" if file_exists else "w", newline="") as file:
                 # Define field names for CSV header
-                fieldnames = ["Name", "Attribute", "Value", "Modifier"]
+                fieldnames = ["Name", "Race", "Attribute", "Value", "Modifier"]
                 # Initialize CSV DictWriter
                 writer = csv.DictWriter(file, fieldnames=fieldnames)
                 # Write header if the file is newly created
@@ -113,6 +113,7 @@ class Character:
                     writer.writerow(
                         {
                             "Name": char_name,
+                            "Race": race_name,
                             "Attribute": key,
                             "Value": value,
                             "Modifier": modifier,
@@ -151,6 +152,8 @@ class Character:
                 reader = csv.DictReader(file)
                 # Initialize a list to store stats
                 stats = []
+                name = None
+                race_name = None
                 # Iterate through each row in the CSV
                 for row in reader:
                     # Get the modifier and convert to int
@@ -162,16 +165,32 @@ class Character:
                         modifier_str = str(modifier)
                     # Append attribute, value, and modified modifier to stats list
                     stats.append([row["Attribute"], row["Value"], modifier_str])
+                    if race_name is None:
+                        race_name = row["Race"]  # Finding race of the character
+                    if name is None:
+                        name = row["Name"]  # Finding name of the character
+                # If CSV file is empty or only contain headers, send an error message
+                if not stats:
+                    await ctx.send(
+                        f"'{char_name}' savefile seems to be empty. :confused:"
+                    )
+                    return None
                 # Define headers for the tabulated output
                 headers = ["Attribute", "Value", "Modifier"]
                 # Generate a tabulated representation of the stats
                 stats_table = tabulate(stats, headers=headers, tablefmt="grid")
-                # Send the tabulated stats to the Discord channel and store the message object
-                message = await ctx.send(f"```{stats_table}```")
+                name_display = f"`Name`: {name}" if name else ""
+                race_display = f"`Race`: {race_name}\n" if race_name else ""
+                # Send the name, race and tabulated stats to the Discord channel and store the message object
+                message = await ctx.send(
+                    f"{name_display}  {race_display}```{stats_table}```"
+                )
                 # Return the message object
                 return message
         except FileNotFoundError:
-            await ctx.send(f"'{char_name}' savefile not found.", ephemeral=True, delete_after=120)
+            await ctx.send(
+                f"'{char_name}' savefile not found.", ephemeral=True, delete_after=120
+            )
         except Exception as e:
             # Send error message if an exception occurs
             await ctx.send(f"An error occurred: {e}", ephemeral=True)
@@ -204,7 +223,7 @@ class Character:
 
         # Write the updated stats back to the file
         with open(filepath, "w", newline="") as file:
-            fieldnames = ["Name", "Attribute", "Value", "Modifier"]
+            fieldnames = ["Name", "Race", "Attribute", "Value", "Modifier"]
             writer = csv.DictWriter(file, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(stats)

@@ -9,7 +9,7 @@ class YView(
     A custom view for handling Yes/No buttons.
     """
 
-    def __init__(self, ctx, num_dice, sides, character_name, player):
+    def __init__(self, ctx, num_dice, sides, character_name, player, race_name):
         """
         Initializes the YView.
 
@@ -24,6 +24,7 @@ class YView(
         self.sides = sides  # Store the number of sides on each die
         self.character_name = character_name  # Store the name of the character
         self.player = player
+        self.race_name = race_name
         super().__init__()  # Call the __init__() method of the parent class
 
     async def disable_buttons(self):
@@ -51,14 +52,18 @@ class YView(
         ):  # Check if the user interacting is the author of the command
             await self.disable_buttons()  # Disable all buttons in the view
             await interaction.response.edit_message(
-                content="Reroll canceled.", view=self
+                content=self.player.show_stats(self.ctx, self.race_name), view=self
             )  # Edit the original message
             await self.ctx.channel.send(
-                await self.player.save_to_csv(self.character_name, self.ctx)
+                await self.player.save_to_csv(
+                    self.character_name, self.race_name, self.ctx
+                )
             )  # Save character stats to CSV
         else:
             await interaction.response.send_message(
-                "This is not your decision to make. :point_up: :nerd:", ephemeral=True
+                "This is not your decision to make. :point_up: :nerd:",
+                ephemeral=True,
+                delete_after=15,
             )  # Send an error message if someone else tries to click the button
 
     @discord.ui.button(label="Yes", custom_id="ybutton", style=discord.ButtonStyle.red)
@@ -81,14 +86,16 @@ class YView(
             player.roll_stats(self.num_dice, self.sides)  # Roll character stats
             await self.disable_buttons()  # Disable all buttons in the view
             await interaction.response.edit_message(
-                content=player.show_stats(self.ctx), view=self
+                content=player.show_stats(self.ctx, self.race_name), view=self
             )  # Edit the original message
             await self.ctx.channel.send(
-                await player.save_to_csv(self.character_name, self.ctx)
+                await player.save_to_csv(self.character_name, self.race_name, self.ctx)
             )  # Save character stats to CSV
         else:
             await interaction.response.send_message(
-                "This is not your decision to make. :point_up: :nerd:", ephemeral=True
+                "This is not your decision to make. :point_up: :nerd:",
+                ephemeral=True,
+                delete_after=15,
             )  # Send an error message if someone else tries to click the button
 
     async def on_timeout(self):

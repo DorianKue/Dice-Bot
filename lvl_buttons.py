@@ -263,6 +263,9 @@ class MyView(discord.ui.View):
             with open(filepath, newline="") as file:
                 # Create a CSV DictReader
                 reader = csv.DictReader(file)
+                stats = []
+                name = None
+                race_name = None
                 # Initialize a list to store stats
                 stats = []
                 # Iterate through each row in the CSV
@@ -276,13 +279,19 @@ class MyView(discord.ui.View):
                         modifier_str = str(modifier)
                     # Append attribute, value, and modified modifier to stats list
                     stats.append([row["Attribute"], row["Value"], modifier_str])
+                    if race_name is None:
+                        race_name = row["Race"]
+                    if name is None:
+                        name = row["Name"]
                 # Define headers for the tabulated output
                 headers = ["Attribute", "Value", "Modifier"]
                 # Generate a tabulated representation of the stats
                 stats_table = tabulate(stats, headers=headers, tablefmt="grid")
+                name_display = f"`Name`: {name}" if name else ""
+                race_display = f"`Race`: {race_name}\n" if race_name else ""
 
             # Return the stats table content
-            return f"```{stats_table}```"
+            return f"{name_display}  {race_display}```{stats_table}```"
 
         except Exception as e:
             # Raise an exception if an error occurs
