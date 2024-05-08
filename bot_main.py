@@ -58,19 +58,21 @@ async def get_character_creator_id(char_name, server_id):
     # Construct directory path based on server ID
     server_dir = f"server_{server_id}"
     # Construct the full file path
-    filepath = os.path.join(server_dir, f"{char_name}_stats.csv")
+    filepath = os.path.join(server_dir, f"{char_name.lower()}_stats.csv")
 
     # Check if the character's stats file exists
     if not os.path.isfile(filepath):
         return None
-
-    # Load the creator ID from the CSV file
-    with open(filepath, newline="") as file:
-        reader = csv.DictReader(file)
-        for row in reader:
-            if row["Name"] == char_name:
-                creator_id = int(row.get("CreatorID", 0))
-                return creator_id
+    else:
+        # Load the creator ID from the CSV file
+        with open(filepath, newline="") as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                creator_id = None
+                if row["Name"].lower() == char_name.lower():
+                    if creator_id is None:
+                        creator_id = row["CreatorID"]
+                        return creator_id
     return None
 
 
@@ -289,7 +291,13 @@ async def roll(ctx: discord.Interaction, roll_input: str, character_name: str):
 
         # Create an instance of RCView for race selection
         raceview = await RCView.create(
-            ctx, character_name, num_dice, sides, race_name=None
+            ctx,
+            character_name,
+            num_dice,
+            sides,
+            race_name=None,
+            dndclass=None,
+            dndclass_name=None,
         )
 
         # Send message to choose race with the created view
@@ -303,7 +311,6 @@ async def roll(ctx: discord.Interaction, roll_input: str, character_name: str):
                 check=lambda interaction: ctx.message == message
                 and interaction.user == ctx.author,
             )
-            print("Button clicked!")
         except asyncio.TimeoutError:
             # Handle timeout for race selection
             await raceview.on_timeout()
@@ -453,10 +460,11 @@ async def showall(ctx):
 
                 # Get the race from the first row of the file
                 race = first_row.get("Race", "")
+                class_name = first_row.get("Class", "")
                 # Extract character name from the filename
                 char_name = filename.split("_stats.csv")[0]
                 # Append character name and race to the char_info list
-                char_info.append((char_name, race))
+                char_info.append((char_name, race, class_name))
         # Check if char_info is empty
         if not char_info:
             # Send message if no characters are found
@@ -464,7 +472,10 @@ async def showall(ctx):
         else:
             # Create a formatted list of character names and races
             char_list = "\n".join(
-                [f"• `Name`: {name}  `Race`: {race}" for name, race in char_info]
+                [
+                    f"• `Name`: {name}  `Race`: {race}  `Class`: {class_name}"
+                    for name, race, class_name in char_info
+                ]
             )
             # Send message with list of saved characters
             await ctx.send(f"**`Saved characters`**:\n{char_list}")

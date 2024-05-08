@@ -266,6 +266,7 @@ class MyView(discord.ui.View):
                 stats = []
                 name = None
                 race_name = None
+                class_name = None
                 # Initialize a list to store stats
                 stats = []
                 # Iterate through each row in the CSV
@@ -283,15 +284,18 @@ class MyView(discord.ui.View):
                         race_name = row["Race"]
                     if name is None:
                         name = row["Name"]
+                    if class_name is None:
+                        class_name = row["Class"]
                 # Define headers for the tabulated output
                 headers = ["Attribute", "Value", "Modifier"]
-                # Generate a tabulated representation of the stats
+                # Generate a tabulated representation of the stats and other information related to the character
                 stats_table = tabulate(stats, headers=headers, tablefmt="grid")
                 name_display = f"`Name`: {name}" if name else ""
-                race_display = f"`Race`: {race_name}\n" if race_name else ""
+                race_display = f"`Race`: {race_name}" if race_name else ""
+                class_display = f"`Class`: {class_name}\n" if class_name else ""
 
-            # Return the stats table content
-            return f"{name_display}  {race_display}```{stats_table}```"
+            # Return the stats table content, name, race and class
+            return f"{name_display}  {race_display}  {class_display}```{stats_table}```"
 
         except Exception as e:
             # Raise an exception if an error occurs

@@ -1,9 +1,9 @@
 import discord  # Import the discord module
 from discord.ext import commands  # Import the commands module from discord.ext
 from character import Character  # Import the Character class from character.py
-from yn_buttons import YView  # Import the YView class from yn_buttons.py
 import asyncio  # Import the asyncio module for handling asynchronous operations
 from discord import Intents  # Import the Intents class from discord module
+from classbutton import CLView
 
 # Initialize the bot with specified parameters
 bot = commands.Bot(
@@ -33,7 +33,18 @@ class RCView(discord.ui.View):
             race_name (str): The name of the selected race.
         """
 
-        def __init__(self, race, label, view, ctx, num_dice, sides, race_name):
+        def __init__(
+            self,
+            race,
+            label,
+            view,
+            ctx,
+            num_dice,
+            sides,
+            race_name,
+            dndclass,
+            dndclass_name,
+        ):
             """
             Initialize the RaceButton.
 
@@ -53,6 +64,8 @@ class RCView(discord.ui.View):
             self.num_dice = num_dice  # Store the number of dice for rolling stats
             self.sides = sides  # Store the number of sides for rolling stats
             self.race_name = race_name  # Store the name of the selected race
+            self.dndclass_name = dndclass_name
+            self.dndclass = dndclass
             # Determine button style based on race
             style = (
                 discord.ButtonStyle.red  # Set button style to red for specific races
@@ -101,80 +114,36 @@ class RCView(discord.ui.View):
                     )  # Get the content of the user's message as custom race
                     # Set custom race
                     self.custom_race = custom_race
-                    # Prepare stat message and display reroll options
-                    stat_msg_content, player, race_name = (
-                        await self.prepare_stat_message(interaction)
-                    )  # Prepare stat message content, character, and race name
-                    reroll_view = YView(
+                    class_view = await CLView.create(
                         self.ctx,
-                        self._view.num_dice,
-                        self._view.sides,
                         self._view.character_name,
-                        player,
-                        race_name,
-                    )  # Create a new view for reroll options
+                        self.dndclass,
+                        self.dndclass_name,
+                        self.num_dice,
+                        self.sides,
+                        self.custom_race,
+                    )
                     await interaction.followup.send(
-                        content=stat_msg_content, view=reroll_view
-                    )  # Send a new follow-up message with reroll options
+                        content="Choose your class:", view=class_view
+                    )  # Edit the message to show stats
                 except asyncio.TimeoutError:
                     await interaction.followup.send(
                         "Input timed out", ephemeral=True
                     )  # Send message indicating timeout
             else:
-                # Prepare stat message and display reroll options
-                stat_msg_content, player, race_name = await self.prepare_stat_message(
-                    interaction
-                )  # Prepare stat message content, character, and race name
-                reroll_view = YView(
+                # Prepare stat message and initiate class selection
+                class_view = await CLView.create(
                     self.ctx,
-                    self._view.num_dice,
-                    self._view.sides,
                     self._view.character_name,
-                    player,
-                    race_name,
-                )  # Create a new view for reroll options
-                # Edit the original message to include the combined content
-                await interaction.response.edit_message(
-                    content=stat_msg_content, view=reroll_view
+                    self.dndclass,
+                    self.dndclass_name,
+                    self.num_dice,
+                    self.sides,
+                    self.race,
                 )
-
-        async def prepare_stat_message(self, interaction):
-            """
-            Prepare the stat message with the stat table and reroll options.
-
-            Args:
-                interaction (discord.Interaction): The interaction object.
-
-            Returns:
-                Tuple[str, Character, str]: The message content, Character object, and race name.
-            """
-            # Create character object and roll stats
-            player = Character(self._view.character_name, self.ctx.guild.id)
-            player.roll_stats(self._view.num_dice, self._view.sides)
-
-            # Determine the race name
-            if self.race == "Other":
-                race_name = self.custom_race
-            else:
-                race_name = self.race
-
-            # Generate the stat table
-            stats_table = player.show_stats(self.ctx, race_name)
-
-            # Construct the Yes/No buttons view
-            reroll_view = YView(
-                self.ctx,
-                self._view.num_dice,
-                self._view.sides,
-                self._view.character_name,
-                player,
-                race_name,
-            )
-
-            # Combine the stat table and reroll options into a single message content
-            stat_msg_content = f"{stats_table}Would you like to reroll?"
-
-            return stat_msg_content, player, race_name
+                await interaction.response.edit_message(
+                    content="Choose your class:", view=class_view
+                )
 
         @property
         def view(self):
@@ -196,7 +165,9 @@ class RCView(discord.ui.View):
             """
             self._view = race
 
-    def __init__(self, ctx, character_name, num_dice, sides, race_name):
+    def __init__(
+        self, ctx, character_name, num_dice, sides, race_name, dndclass, dndclass_name
+    ):
         """
         Initialize the RCView.
 
@@ -214,6 +185,8 @@ class RCView(discord.ui.View):
         self.character_name = character_name  # Store the character name
         self.command_invoker_id = ctx.author.id  # Store the ID of the command invoker
         self.race_name = race_name  # Store the name of the selected race
+        self.dndclass_name = dndclass_name
+        self.dndclass = dndclass
 
     async def add_buttons(self, race_name):
         """
@@ -242,11 +215,15 @@ class RCView(discord.ui.View):
                 self.num_dice,  # Set the number of dice for rolling stats
                 self.sides,  # Set the number of sides for rolling stats
                 race_name,  # Set the name of the selected race
+                self.dndclass_name,
+                self.dndclass,
             )
             self.add_item(button)  # Add the button to the view
 
     @classmethod
-    async def create(cls, ctx, race, num_dice, sides, race_name):
+    async def create(
+        cls, ctx, race, num_dice, sides, race_name, dndclass, dndclass_name
+    ):
         """
         Create an instance of RCView.
 
@@ -260,7 +237,9 @@ class RCView(discord.ui.View):
         Returns:
             RCView: The created instance of RCView.
         """
-        self = RCView(ctx, race, num_dice, sides, race_name)  # Initialize the instance
+        self = RCView(
+            ctx, race, num_dice, sides, race_name, dndclass, dndclass_name
+        )  # Initialize the instance
         await self.add_buttons(race_name)  # Add race selection buttons to the view
         return self
 

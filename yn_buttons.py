@@ -9,7 +9,17 @@ class YView(
     A custom view for handling Yes/No buttons.
     """
 
-    def __init__(self, ctx, num_dice, sides, character_name, player, race_name):
+    def __init__(
+        self,
+        ctx,
+        num_dice,
+        sides,
+        character_name,
+        player,
+        race_name,
+        dndclass,
+        invoker_id,
+    ):
         """
         Initializes the YView.
 
@@ -25,6 +35,8 @@ class YView(
         self.character_name = character_name  # Store the name of the character
         self.player = player
         self.race_name = race_name
+        self.dndclass = dndclass
+        self.invoker_id = invoker_id
         super().__init__()  # Call the __init__() method of the parent class
 
     async def disable_buttons(self):
@@ -47,16 +59,19 @@ class YView(
             interaction (discord.Interaction): The interaction object.
             button (discord.ui.Button): The button object.
         """
-        if (
-            interaction.user == self.ctx.author
-        ):  # Check if the user interacting is the author of the command
+        if interaction.user.id == self.invoker_id:
             await self.disable_buttons()  # Disable all buttons in the view
             await interaction.response.edit_message(
-                content=self.player.show_stats(self.ctx, self.race_name), view=self
+                content=self.player.show_stats(self.ctx, self.race_name, self.dndclass),
+                view=self,
             )  # Edit the original message
             await self.ctx.channel.send(
                 await self.player.save_to_csv(
-                    self.character_name, self.race_name, self.ctx
+                    self.character_name,
+                    self.race_name,
+                    self.ctx,
+                    self.dndclass,
+                    self.invoker_id,
                 )
             )  # Save character stats to CSV
         else:
@@ -77,19 +92,24 @@ class YView(
             interaction (discord.Interaction): The interaction object.
             button (discord.ui.Button): The button object.
         """
-        if (
-            interaction.user == self.ctx.author
-        ):  # Check if the user interacting is the author of the command
+        if interaction.user.id == self.invoker_id:
             player = Character(
                 self.character_name, self.ctx.guild.id
             )  # Create a Character object
             player.roll_stats(self.num_dice, self.sides)  # Roll character stats
             await self.disable_buttons()  # Disable all buttons in the view
             await interaction.response.edit_message(
-                content=player.show_stats(self.ctx, self.race_name), view=self
+                content=player.show_stats(self.ctx, self.race_name, self.dndclass),
+                view=self,
             )  # Edit the original message
             await self.ctx.channel.send(
-                await player.save_to_csv(self.character_name, self.race_name, self.ctx)
+                await player.save_to_csv(
+                    self.character_name,
+                    self.race_name,
+                    self.ctx,
+                    self.dndclass,
+                    self.invoker_id,
+                )
             )  # Save character stats to CSV
         else:
             await interaction.response.send_message(

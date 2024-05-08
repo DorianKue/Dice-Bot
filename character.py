@@ -57,8 +57,18 @@ class Character:
             modifier = (stat_value - 10) // 2  # Calculate the modifier
             return modifier  # Return the calculated modifier
 
-    def show_stats(self, ctx, race_name):
-        """Display the character's stats."""
+    def show_stats(self, ctx, race_name, dndclass):
+        """
+        Display the character's stats.
+
+        Args:
+            ctx: The context object representing the invocation context.
+            race_name (str): The name of the character's race.
+            dndclass (str): The character's class.
+
+        Returns:
+            str: A formatted string containing the character's stats, including race and class.
+        """
         table = []  # Initialize an empty list for the table
         for key, value in self.stats.items():  # Iterate through each stat
             modifier = self.ability_score_modifier.get(
@@ -75,15 +85,21 @@ class Character:
         stats_table = tabulate(
             table, headers=headers, tablefmt="grid"
         )  # Format table using tabulate
-        return f"Race: {race_name}\n```{stats_table}```"  # return the formatted table to Discord
+        return f"`Race`: {race_name}  `Class`: {dndclass}\n```{stats_table}```"  # return the formatted table to Discord
 
-    async def save_to_csv(self, char_name, race_name, ctx):
+    async def save_to_csv(self, char_name, race_name, ctx, dndclass, invoker_id):
         """
         Save the character's stats to a CSV file.
 
         Args:
             char_name (str): The name of the character.
+            race_name (str): The name of the character's race.
             ctx: The context object representing the invocation context.
+            dndclass (str): The character's class.
+            invoker_id (int): The ID of the user who invoked the command to save the character's stats.
+
+        Returns:
+            str: A message confirming that the character's stats have been saved, or an error message if saving fails.
         """
         try:
             # Construct directory path based on server ID
@@ -99,7 +115,15 @@ class Character:
             # Open the file in append mode if it exists, otherwise in write mode - For now only in write mode. Don't want to append but left it in, in case i need it.
             with open(filepath, "w" if file_exists else "w", newline="") as file:
                 # Define field names for CSV header
-                fieldnames = ["Name", "Race", "Attribute", "Value", "Modifier"]
+                fieldnames = [
+                    "Name",
+                    "Race",
+                    "Class",
+                    "Attribute",
+                    "Value",
+                    "Modifier",
+                    "CreatorID",
+                ]
                 # Initialize CSV DictWriter
                 writer = csv.DictWriter(file, fieldnames=fieldnames)
                 # Write header if the file is newly created
@@ -114,13 +138,14 @@ class Character:
                         {
                             "Name": char_name,
                             "Race": race_name,
+                            "Class": dndclass,
                             "Attribute": key,
                             "Value": value,
                             "Modifier": modifier,
+                            "CreatorID": invoker_id,
                         }
                     )
             # Send confirmation message
-            # await ctx.channel.send("Character stats have been saved.")
             return f"Character stats for '{char_name}' have been saved."
         except Exception as e:
             # Send error message if an exception occurs
@@ -154,6 +179,7 @@ class Character:
                 stats = []
                 name = None
                 race_name = None
+                class_name = None
                 # Iterate through each row in the CSV
                 for row in reader:
                     # Get the modifier and convert to int
@@ -165,10 +191,15 @@ class Character:
                         modifier_str = str(modifier)
                     # Append attribute, value, and modified modifier to stats list
                     stats.append([row["Attribute"], row["Value"], modifier_str])
+                    # Finding race of the character
                     if race_name is None:
-                        race_name = row["Race"]  # Finding race of the character
+                        race_name = row["Race"]
+                    # Finding name of the character
                     if name is None:
-                        name = row["Name"]  # Finding name of the character
+                        name = row["Name"]
+                    # Finding class of the character
+                    if class_name is None:
+                        class_name = row["Class"]
                 # If CSV file is empty or only contain headers, send an error message
                 if not stats:
                     await ctx.send(
@@ -179,11 +210,13 @@ class Character:
                 headers = ["Attribute", "Value", "Modifier"]
                 # Generate a tabulated representation of the stats
                 stats_table = tabulate(stats, headers=headers, tablefmt="grid")
+                # Prepare display strings for name, race, and class
                 name_display = f"`Name`: {name}" if name else ""
-                race_display = f"`Race`: {race_name}\n" if race_name else ""
-                # Send the name, race and tabulated stats to the Discord channel and store the message object
+                race_display = f"`Race`: {race_name}" if race_name else ""
+                class_display = f"`Class`: {class_name}\n" if class_name else ""
+                # Send the name, race, and tabulated stats to the Discord channel and store the message object
                 message = await ctx.send(
-                    f"{name_display}  {race_display}```{stats_table}```"
+                    f"{name_display}  {race_display}  {class_display}```{stats_table}```"
                 )
                 # Return the message object
                 return message
@@ -223,7 +256,15 @@ class Character:
 
         # Write the updated stats back to the file
         with open(filepath, "w", newline="") as file:
-            fieldnames = ["Name", "Race", "Attribute", "Value", "Modifier"]
+            fieldnames = [
+                "Name",
+                "Race",
+                "Class",
+                "Attribute",
+                "Value",
+                "Modifier",
+                "CreatorID",
+            ]
             writer = csv.DictWriter(file, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(stats)

@@ -87,14 +87,14 @@ class RView(discord.ui.View):
             with open(filepath, newline="") as file:
                 # Create a CSV DictReader object
                 reader = csv.DictReader(file)
-                creator_id = None
                 # Iterate through each row in the CSV
                 for row in reader:
+                    creator_id = None
                     # Check if the row corresponds to the character name
-                    if row["Name"].lower() == self.name:
-                        # Get the ID of the creator from the CSV
-                        creator_id = int(row.get("CreatorID", 0))
-                        break  # Stop iterating if the character is found
+                    if row["Name"].lower() == self.name.lower():
+                        if creator_id is None:
+                            creator_id = row["CreatorID"]
+                            break
 
             await self.disable_buttons()
 
@@ -125,10 +125,10 @@ class RView(discord.ui.View):
                     content=f"Character '{self.name}' deleted successfully. :headstone:",
                     view=self,
                 )
-            else:
-                # Send error message if unauthorized to delete
-                await interaction.response.send_message(
-                    "You can't delete the character of someone else. :rage:",
-                    ephemeral=True,
-                    delete_after=10,
-                )
+        else:
+            # Send error message if unauthorized to delete
+            await interaction.response.send_message(
+                "You can't delete the character of someone else. :rage:",
+                ephemeral=True,
+                delete_after=10,
+            )
