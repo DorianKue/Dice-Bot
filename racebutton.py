@@ -138,30 +138,6 @@ class RCView(discord.ui.View):
                     content=stat_msg_content, view=reroll_view
                 )
 
-        @staticmethod
-        async def roll_char(
-            interaction: discord.Interaction, ctx, character_name, num_dice, sides
-        ):
-            """
-            Roll character stats and send a message with stat table and reroll options.
-
-            Args:
-                interaction (discord.Interaction): The interaction object.
-                ctx (discord.Interaction): The context of the command.
-                character_name (str): The name of the character.
-                num_dice (int): Number of dice for rolling stats.
-                sides (int): Number of sides for rolling stats.
-            Returns:
-                Tuple[discord.Message, Character]: The message object containing the displayed stats and the Character object.
-            """
-            # Create character object and roll stats
-            player = Character(character_name, ctx.guild.id)
-            player.roll_stats(num_dice, sides)
-            # Show stats
-            stats_message = await interaction.followup.send(player.show_stats(ctx))
-            # Construct the Yes/No buttons view
-            return stats_message, player
-
         async def prepare_stat_message(self, interaction):
             """
             Prepare the stat message with the stat table and reroll options.
