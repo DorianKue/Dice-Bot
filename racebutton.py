@@ -141,9 +141,20 @@ class RCView(discord.ui.View):
                     self.sides,
                     self.race,
                 )
-                await interaction.response.edit_message(
+                followup_msg = await interaction.response.edit_message(
                     content="Choose your class:", view=class_view
                 )
+                try:
+                    response = await self.ctx.bot.wait_for(
+                        "button_click",
+                        check=lambda i: i.user == self.ctx.author,
+                        timeout=120,
+                    )
+                except asyncio.TimeoutError:
+                    await class_view.on_timeout()
+                    await interaction.edit_original_response(
+                        content="Class selection timed out.", view=class_view
+                    )
 
         @property
         def view(self):

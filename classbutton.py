@@ -1,8 +1,5 @@
 import discord
 from character import Character
-import asyncio
-from discord.ext import commands
-from discord import Intents
 from yn_buttons import YView
 
 
@@ -54,19 +51,20 @@ class CLView(discord.ui.View):
             # Determine button style based on character class
             style = (
                 discord.ButtonStyle.red
-                if dndclass in ["Barbarian", "Fighter", "Paladin"]
+                if dndclass in ["Barbarian", "Fighter", "Paladin", "Cleric"]
                 else (
                     discord.ButtonStyle.green
-                    if dndclass in ["Monk", "Ranger", "Rogue"]
+                    if dndclass in ["Monk", "Ranger", "Rogue", "Druid"]
                     else discord.ButtonStyle.blurple
                 )
             )
-            # Initialize button using superclass constructor
-            super().__init__(
-                label=label,
-                style=style,
-                custom_id=dndclass,
+            row = (
+                0
+                if dndclass in ["Barbarian", "Fighter", "Paladin", "Cleric"]
+                else 1 if dndclass in ["Monk", "Ranger", "Rogue", "Druid"] else 2
             )
+            # Initialize button using superclass constructor
+            super().__init__(label=label, style=style, custom_id=dndclass, row=row)
 
         async def callback(self, interaction: discord.Interaction):
             """

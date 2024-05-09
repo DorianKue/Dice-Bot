@@ -305,7 +305,7 @@ async def roll(ctx: discord.Interaction, roll_input: str, character_name: str):
 
         # Wait for the user to click a button for race selection
         try:
-            race_interaction = await bot.wait_for(
+            await bot.wait_for(
                 "button_click",
                 timeout=120,
                 check=lambda interaction: ctx.message == message
@@ -314,9 +314,7 @@ async def roll(ctx: discord.Interaction, roll_input: str, character_name: str):
         except asyncio.TimeoutError:
             # Handle timeout for race selection
             await raceview.on_timeout()
-            await ctx.send(
-                "Race selection timed out.", ephemeral=True, delete_after=120
-            )
+            await message.edit(content="Race selection timed out", view=raceview)
     except Exception as e:
         # Handle any other exceptions
         await ctx.send(f"An error occurred: {e}", ephemeral=True)
@@ -415,7 +413,7 @@ async def lvl(
             # Wait for button click interaction within 180 seconds
             interaction = await bot.wait_for(
                 "button_click",
-                timeout=180,
+                timeout=150,
                 check=lambda interaction: interaction.message == msg
                 and interaction.user == ctx.author,
             )
