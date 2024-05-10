@@ -1,10 +1,8 @@
 import discord  # Import the discord module
 from discord.ext import commands  # Import the commands module from discord.ext
-from character import Character  # Import the Character class from character.py
 import asyncio  # Import the asyncio module for handling asynchronous operations
 from discord import Intents  # Import the Intents class from discord module
-from classbutton import CLView
-
+from components.classbuttons import CLView
 # Initialize the bot with specified parameters
 bot = commands.Bot(
     command_prefix=["/"],  # Define the prefix for command invocation
@@ -69,10 +67,10 @@ class RCView(discord.ui.View):
             # Determine button style based on race
             style = (
                 discord.ButtonStyle.red  # Set button style to red for specific races
-                if race in ["Dragonborn", "Tiefling", "Half-Orc", "Other"]
+                if race in ["Dragonborn", "Tiefling", "Half-Orc", "Gnome"]
                 else (
                     discord.ButtonStyle.green  # Set button style to green for specific races
-                    if race in ["Dwarf", "Gnome", "Halfling"]
+                    if race in ["Dwarf", "Gnome", "Halfling", "Half-Elf", "Other"]
                     else discord.ButtonStyle.blurple  # Set button style to blurple for others
                 )
             )

@@ -12,10 +12,10 @@ import csv  # Import csv module for working with CSV files
 import asyncio  # Import asyncio module for asynchronous programming
 import re  # Import re module to use regular expressions
 from character import Character  # Import the Character class from character.py
-from lvl_buttons import MyView
-from help import CustomHelpCommand
-from rm_buttons import RView
-from racebutton import RCView
+from components.lvl_buttons import MyView
+from commands.help import CustomHelpCommand
+from components.rm_buttons import RView
+from components.racebuttons import RCView
 
 
 def bot_setup():
@@ -619,8 +619,14 @@ async def coinflip(ctx):
         await ctx.send(
             "Flipping a coin..."
         )  # Sending a message first so that the acitivity or command doesn't time out
+
+        # Get the current directory of the script
+        current_directory = os.path.dirname(os.path.realpath(__file__))
+        # Construct the full path to the GIF file
+        gif_path = os.path.join(current_directory, "resources", "coin-flip.gif")
+
         await ctx.channel.send(
-            file=discord.File("coin-flip.gif")
+            file=discord.File(gif_path)
         )  # Sending a gif of a coinflip
         await asyncio.sleep(
             1.45

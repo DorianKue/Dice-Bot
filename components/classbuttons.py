@@ -1,6 +1,6 @@
 import discord
 from character import Character
-from yn_buttons import YView
+from components.yn_buttons import YView
 
 
 class CLView(discord.ui.View):
