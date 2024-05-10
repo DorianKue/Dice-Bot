@@ -19,7 +19,10 @@ class CustomHelpCommand(commands.Cog):
         embed = discord.Embed(
             title="Command Help",  # Title of the embed
             description="`Prefix`:\n"
-            "This Bot uses '`/`' as a prefix"
+            "This Bot uses '`/`' as a prefix\n"
+            "However you can set a custom prefix using /setprefix `insert custom prefix`. E.g. `/setprefix !`\n"
+            "Now you can use your custom prefix together with slash commands."
+            "\n"
             "\n"
             "**Available commands:**",  # Description of the embed
             color=discord.Color.blue(),  # Color of the embed

@@ -18,6 +18,43 @@ from components.rm_buttons import RView
 from components.racebuttons import RCView
 
 
+async def get_custom_prefix(bot, message):
+    """
+    Retrieves the custom prefix for the given message's guild from a CSV file.
+
+    Args:
+        bot (discord.ext.commands.Bot): The bot instance.
+        message (discord.Message): The message object for which to retrieve the prefix.
+
+    Returns:
+        str: The custom prefix for the guild, or '/' if not found.
+    """
+    # Define the filename for the prefixes CSV file
+    prefixes_file = "prefixes.csv"
+
+    # Check if the message was sent in a guild (server)
+    if message.guild:
+        # Construct the full path to the prefixes CSV file
+        prefixes_file_path = os.path.join("resources", prefixes_file)
+
+        # Check if the prefixes CSV file exists
+        if os.path.exists(prefixes_file_path):
+            # Open the prefixes CSV file
+            with open(prefixes_file_path) as file:
+                # Read the CSV file as a dictionary
+                reader = csv.DictReader(file)
+
+                # Iterate through each row in the CSV file
+                for row in reader:
+                    # Check if the ServerID in the row matches the guild's ID
+                    if int(row["ServerID"]) == message.guild.id:
+                        # Return the custom prefix for the guild
+                        return row["Prefix"]
+
+    # Return '/' as the default prefix if no custom prefix is found
+    return "/"
+
+
 def bot_setup():
     # Load environment variables from the .env file
     load_dotenv()
@@ -29,7 +66,7 @@ def bot_setup():
     intents = Intents.default()
     intents.message_content = True
     bot = commands.Bot(
-        command_prefix=["/"],  # Define the prefix for command invocation
+        command_prefix=get_custom_prefix,  # Define the prefix for command invocation
         intents=intents,  # Specify the intents for the bot to receive from Discord
         help_command=None,  # Disable the default help command
         case_insensitive=True,  # Make commands case-insensitive
@@ -96,6 +133,8 @@ async def help_cogs(ctx):
 @bot.event
 async def on_ready():
     """Print a message when the bot is ready."""
+    game = discord.Game("with Dice")
+    await bot.change_presence(status=discord.Status.online, activity=game)
     print("Bot is ready.")
 
 
@@ -131,7 +170,8 @@ async def update_commands():
     """
     # Get the directory path where the bot's code resides
     bot_directory = os.path.dirname(os.path.realpath(__file__))
-
+    prefix_folder = os.path.join(bot_directory, "resources")
+    prefixes_file_path = os.path.join(prefix_folder, "prefixes.csv")
     # Iterate through files in the directory
     for filename in os.listdir(bot_directory):
         # Check if the file is a CSV file
@@ -649,6 +689,117 @@ async def wrist(ctx):
         await ctx.send(f"R.I.P {name}")
     except Exception as e:
         await ctx.send(f"An error occurred: {e}")
+
+
+# Command to set a custom prefix for the bot commands
+@bot.hybrid_command(
+    name="setprefix",
+    description="Set a custom prefix for commands - Needs admin permissions.",
+)
+@commands.has_permissions(administrator=True)
+async def setprefix(ctx, prefix: str):
+    """
+    Sets a custom prefix for the bot commands in the server.
+
+    Args:
+        ctx (discord.ext.commands.Context): The context of the command.
+        prefix (str): The custom prefix to set.
+
+    Raises:
+        Exception: If an error occurs during the process.
+
+    Returns:
+        None
+    """
+    existing_prefixes = {}
+    prefixes_file = "prefixes.csv"
+    prefix_folder = "resources"
+    prefixes_file_path = os.path.join(prefix_folder, prefixes_file)
+
+    # Create the prefix folder if it doesn't exist
+    if not os.path.exists(prefix_folder):
+        os.makedirs(prefix_folder)
+
+    try:
+        # Check if the prefixes file exists
+        if os.path.exists(prefixes_file_path):
+            # Read existing prefixes from the CSV file
+            with open(prefixes_file_path, "r") as file:
+                reader = csv.DictReader(file)
+                for row in reader:
+                    existing_prefixes[int(row["ServerID"])] = row["Prefix"]
+
+        # Set the custom prefix for the current server
+        existing_prefixes[ctx.guild.id] = prefix
+
+        # Write the updated prefixes to the CSV file
+        with open(prefixes_file_path, "w", newline="") as file:
+            fieldnames = ["ServerID", "Prefix"]
+            writer = csv.DictWriter(file, fieldnames=fieldnames)
+            writer.writeheader()
+            for server_id, new_prefix in existing_prefixes.items():
+                writer.writerow({"ServerID": int(server_id), "Prefix": new_prefix})
+
+        # Send confirmation message
+        await ctx.send(f"Custom prefix set to '{prefix}'.")
+
+    except Exception as e:
+        # Send error message if an exception occurs
+        await ctx.send(f"An error occurred: {e}", ephemeral=True)
+
+
+# Command to remove the custom prefix
+@bot.hybrid_command(
+    name="rmprefix", description="Removes the custom prefix - Needs admin permissions."
+)
+@commands.has_permissions(administrator=True)
+async def rmprefix(ctx):
+    """
+    Removes the custom prefix for the bot commands in the server.
+
+    Args:
+        ctx (discord.ext.commands.Context): The context of the command.
+
+    Returns:
+        None
+    """
+    prefixes_file = "prefixes.csv"
+    prefix_folder = "resources"
+    prefixes_file_path = os.path.join(prefix_folder, prefixes_file)
+
+    # Check if the prefixes file exists
+    if not os.path.exists(prefixes_file_path):
+        # Send error message if the file doesn't exist
+        await ctx.send("Prefix-savefile not found", ephemeral=True)
+        return
+
+    existing_prefixes = {}
+
+    # Read existing prefixes from the CSV file
+    with open(prefixes_file_path, "r") as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            existing_prefixes[int(row["ServerID"])] = row["Prefix"]
+
+    # Check if the current server has a custom prefix
+    if ctx.guild.id not in existing_prefixes:
+        # Send error message if the prefix doesn't exist for the server
+        await ctx.send("Prefix not found", ephemeral=True)
+        return
+
+    # Remove the custom prefix for the current server
+    existing_prefixes.pop(ctx.guild.id)
+
+    # Write the updated prefixes to the CSV file
+    with open(prefixes_file_path, "w", newline="") as file:
+        fieldnames = ["ServerID", "Prefix"]
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer.writeheader()
+        for server_id, prefix in existing_prefixes.items():
+            writer.writerow({"ServerID": server_id, "Prefix": prefix})
+
+    # Send confirmation message
+    await ctx.send("Custom prefix removed")
 
 
 # manually sync all global commands if necessary
