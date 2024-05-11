@@ -24,6 +24,7 @@ class CLView(discord.ui.View):
             sides,
             race_name,
             invoker_id,
+            modifier,
         ):
             """
             Initializes the ClassButton instance.
@@ -48,6 +49,7 @@ class CLView(discord.ui.View):
             self.dndnclass_name = dndclass_name
             self.race_name = race_name
             self.invoker_id = invoker_id
+            self.modifier = modifier
             # Determine button style based on character class
             style = (
                 discord.ButtonStyle.red
@@ -82,8 +84,12 @@ class CLView(discord.ui.View):
             player = Character(self._view.character_name, self._view.ctx.guild.id)
             # Roll character stats
             player.roll_stats(self.num_dice, self.sides)
+            hp = player.determine_start_hp(self.dndclass)
+            lvl = 1
             # Get stats table
-            stats_table = player.show_stats(self.ctx, self.race_name, self.dndclass)
+            stats_table = player.show_stats(
+                self.ctx, self.race_name, self.dndclass, lvl, hp
+            )
             # Create YView for reroll prompt
             reroll_view = YView(
                 interaction,
@@ -94,6 +100,7 @@ class CLView(discord.ui.View):
                 self.race_name,
                 self.dndclass,
                 self.invoker_id,
+                self._view.modifier,
             )
             # Construct message content
             stat_msg_content = f"{stats_table}Would you like to reroll?"
@@ -133,6 +140,7 @@ class CLView(discord.ui.View):
         sides,
         race_name,
         invoker_id,
+        modifier,
     ):
         """
         Initializes the CLView instance.
@@ -159,6 +167,7 @@ class CLView(discord.ui.View):
         self.sides = sides
         self.race_name = race_name
         self.invoker_id = invoker_id
+        self.modifier = modifier
 
     async def add_buttons(self, dndclass_name):
         """
@@ -194,13 +203,22 @@ class CLView(discord.ui.View):
                 self.sides,
                 self.race_name,
                 self.invoker_id,
+                self.modifier,
             )
             # Add the button to the view
             self.add_item(button)
 
     @classmethod
     async def create(
-        cls, ctx, character_name, dndclass, dndclass_name, num_dice, sides, race_name
+        cls,
+        ctx,
+        character_name,
+        dndclass,
+        dndclass_name,
+        num_dice,
+        sides,
+        race_name,
+        modifier,
     ):
         """
         Create an instance of CLView.
@@ -229,6 +247,7 @@ class CLView(discord.ui.View):
             sides,
             race_name,
             invoker_id,
+            modifier,
         )
         # Add buttons for selecting character class
         await self.add_buttons(dndclass_name)

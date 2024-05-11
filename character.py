@@ -57,7 +57,50 @@ class Character:
             modifier = (stat_value - 10) // 2  # Calculate the modifier
             return modifier  # Return the calculated modifier
 
-    def show_stats(self, ctx, race_name, dndclass):
+    def determine_start_hp(self, class_name):
+        const_modifier = int(self.ability_score_modifier.get("Constitution", 0))
+        if class_name in ["Sorcerer", "Wizard"]:
+            return int(const_modifier + 6)
+        elif class_name in [
+            "Artificer",
+            "Bard",
+            "Cleric",
+            "Druid",
+            "Monk",
+            "Rogue",
+            "Warlock",
+        ]:
+            return int(const_modifier + 8)
+        elif class_name in ["Fighter", "Paladin", "Ranger"]:
+            return int(const_modifier + 10)
+        else:
+            return int(const_modifier + 12)
+
+    async def level_up_hp(self, class_name, hp, modifier):
+        const_modifier = modifier
+        if class_name in ["Sorcerer", "Wizard"]:
+            roll = random.randint(1, 6)
+            return int(hp) + roll + const_modifier
+        elif class_name in [
+            "Artificer",
+            "Bard",
+            "Cleric",
+            "Druid",
+            "Monk",
+            "Rogue",
+            "Warlock",
+        ]:
+            roll = random.randint(1, 8)
+            return int(hp) + roll + const_modifier
+        elif class_name in ["Fighter", "Paladin", "Ranger"]:
+            roll = random.randint(1, 10)
+            return int(hp) + roll + const_modifier
+        else:
+            roll = random.randint(1, 12)
+            print(f"HP: {hp} {roll}, {const_modifier}")
+            return int(hp) + roll + const_modifier
+
+    def show_stats(self, ctx, race_name, dndclass, level, hp):
         """
         Display the character's stats.
 
@@ -85,9 +128,11 @@ class Character:
         stats_table = tabulate(
             table, headers=headers, tablefmt="grid"
         )  # Format table using tabulate
-        return f"`Race`: {race_name}  `Class`: {dndclass}\n```{stats_table}```"  # return the formatted table to Discord
+        return f"`Race`: {race_name}  `Class`: {dndclass}  `Level`: {level}  `Health`: {hp}\n```{stats_table}```"  # return the formatted table to Discord
 
-    async def save_to_csv(self, char_name, race_name, ctx, dndclass, invoker_id):
+    async def save_to_csv(
+        self, char_name, race_name, ctx, dndclass, invoker_id, lvl, hp: int
+    ):
         """
         Save the character's stats to a CSV file.
 
@@ -123,6 +168,8 @@ class Character:
                     "Value",
                     "Modifier",
                     "CreatorID",
+                    "Level",
+                    "Health",
                 ]
                 # Initialize CSV DictWriter
                 writer = csv.DictWriter(file, fieldnames=fieldnames)
@@ -143,6 +190,8 @@ class Character:
                             "Value": value,
                             "Modifier": modifier,
                             "CreatorID": invoker_id,
+                            "Level": lvl,
+                            "Health": int(hp),
                         }
                     )
             # Send confirmation message
@@ -180,6 +229,8 @@ class Character:
                 name = None
                 race_name = None
                 class_name = None
+                lvl = None
+                hp = None
                 # Iterate through each row in the CSV
                 for row in reader:
                     # Get the modifier and convert to int
@@ -200,6 +251,10 @@ class Character:
                     # Finding class of the character
                     if class_name is None:
                         class_name = row["Class"]
+                    if lvl is None:
+                        lvl = row["Level"]
+                    if hp is None:
+                        hp = row["Health"]
                 # If CSV file is empty or only contain headers, send an error message
                 if not stats:
                     await ctx.send(
@@ -213,10 +268,12 @@ class Character:
                 # Prepare display strings for name, race, and class
                 name_display = f"`Name`: {name}" if name else ""
                 race_display = f"`Race`: {race_name}" if race_name else ""
-                class_display = f"`Class`: {class_name}\n" if class_name else ""
+                class_display = f"`Class`: {class_name}" if class_name else ""
+                lvl_display = f"`Level`: {lvl}" if lvl else ""
+                hp_display = f"`Health`: {hp}\n" if hp else ""
                 # Send the name, race, and tabulated stats to the Discord channel and store the message object
                 message = await ctx.send(
-                    f"{name_display}  {race_display}  {class_display}```{stats_table}```"
+                    f"{name_display}  {race_display}  {class_display}  {lvl_display}  {hp_display}```{stats_table}```"
                 )
                 # Return the message object
                 return message
@@ -264,6 +321,8 @@ class Character:
                 "Value",
                 "Modifier",
                 "CreatorID",
+                "Level",
+                "Health",
             ]
             writer = csv.DictWriter(file, fieldnames=fieldnames)
             writer.writeheader()

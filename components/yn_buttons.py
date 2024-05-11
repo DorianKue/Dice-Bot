@@ -19,6 +19,7 @@ class YView(
         race_name,
         dndclass,
         invoker_id,
+        modifier,
     ):
         """
         Initializes the YView.
@@ -37,6 +38,7 @@ class YView(
         self.race_name = race_name
         self.dndclass = dndclass
         self.invoker_id = invoker_id
+        self.modifier = modifier
         super().__init__()  # Call the __init__() method of the parent class
 
     async def disable_buttons(self):
@@ -61,8 +63,13 @@ class YView(
         """
         if interaction.user.id == self.invoker_id:
             await self.disable_buttons()  # Disable all buttons in the view
+            hp = self.player.determine_start_hp(self.dndclass)
+            hp = int(hp)
+            lvl = 1
             await interaction.response.edit_message(
-                content=self.player.show_stats(self.ctx, self.race_name, self.dndclass),
+                content=self.player.show_stats(
+                    self.ctx, self.race_name, self.dndclass, lvl, hp
+                ),
                 view=self,
             )  # Edit the original message
             await self.ctx.channel.send(
@@ -72,8 +79,10 @@ class YView(
                     self.ctx,
                     self.dndclass,
                     self.invoker_id,
+                    lvl,
+                    hp,
                 )
-            )  # Save character stats to CSV
+            )
         else:
             await interaction.response.send_message(
                 "This is not your decision to make. :point_up: :nerd:",
@@ -98,8 +107,13 @@ class YView(
             )  # Create a Character object
             player.roll_stats(self.num_dice, self.sides)  # Roll character stats
             await self.disable_buttons()  # Disable all buttons in the view
+            hp = player.determine_start_hp(self.dndclass)
+            hp = int(hp)
+            lvl = 1
             await interaction.response.edit_message(
-                content=player.show_stats(self.ctx, self.race_name, self.dndclass),
+                content=player.show_stats(
+                    self.ctx, self.race_name, self.dndclass, lvl, hp
+                ),
                 view=self,
             )  # Edit the original message
             await self.ctx.channel.send(
@@ -109,6 +123,8 @@ class YView(
                     self.ctx,
                     self.dndclass,
                     self.invoker_id,
+                    lvl,
+                    hp,
                 )
             )  # Save character stats to CSV
         else:

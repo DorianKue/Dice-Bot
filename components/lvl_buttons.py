@@ -111,7 +111,7 @@ class MyView(discord.ui.View):
         self.command_invoker_id = ctx.author.id  # Store the command invoker ID
 
     @classmethod
-    async def create(cls, ctx, char_name, stats_table_message, max_clicks=2):
+    async def create(cls, ctx, stats_table_message, char_name, max_clicks=2):
         """
         Creates a new instance of MyView.
 
@@ -126,7 +126,7 @@ class MyView(discord.ui.View):
             MyView: The created MyView instance.
         """
         # Create a new instance of MyView with the provided parameters
-        self = MyView(ctx, char_name, stats_table_message, max_clicks)
+        self = MyView(ctx, stats_table_message, char_name, max_clicks)
         # Add buttons to the view instance
         await self.add_buttons()
         return self
@@ -250,6 +250,8 @@ class MyView(discord.ui.View):
 
         return self.stats_content  # Return the stats table content for later use
 
+        # return self.stats_content  # Return the stats table content for later use
+
     @staticmethod
     async def display_character_stats_lvl(
         ctx, char_name, server_id, stats_message=None
@@ -267,6 +269,8 @@ class MyView(discord.ui.View):
                 name = None
                 race_name = None
                 class_name = None
+                lvl = None
+                hp = None
                 # Initialize a list to store stats
                 stats = []
                 # Iterate through each row in the CSV
@@ -286,17 +290,21 @@ class MyView(discord.ui.View):
                         name = row["Name"]
                     if class_name is None:
                         class_name = row["Class"]
+                    if lvl is None:
+                        lvl = row["Level"]
+                    if hp is None:
+                        hp = row["Health"]
                 # Define headers for the tabulated output
                 headers = ["Attribute", "Value", "Modifier"]
                 # Generate a tabulated representation of the stats and other information related to the character
                 stats_table = tabulate(stats, headers=headers, tablefmt="grid")
                 name_display = f"`Name`: {name}" if name else ""
                 race_display = f"`Race`: {race_name}" if race_name else ""
-                class_display = f"`Class`: {class_name}\n" if class_name else ""
-
-            # Return the stats table content, name, race and class
-            return f"{name_display}  {race_display}  {class_display}```{stats_table}```"
-
+                class_display = f"`Class`: {class_name}" if class_name else ""
+                lvl_display = f"`Level`: {lvl}" if lvl else ""
+                hp_display = f"`Health increased to`: {hp}\n" if hp else ""
+            # Return the stats table content, name, race, and class
+            return f"{name_display}  {race_display}  {class_display}  {lvl_display}  {hp_display}```{stats_table}```"
         except Exception as e:
             # Raise an exception if an error occurs
             raise RuntimeError(f"An error occurred: {e}")

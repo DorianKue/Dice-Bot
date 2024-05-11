@@ -338,6 +338,7 @@ async def roll(ctx: discord.Interaction, roll_input: str, character_name: str):
             race_name=None,
             dndclass=None,
             dndclass_name=None,
+            modifier=None,
         )
 
         # Send message to choose race with the created view
@@ -426,6 +427,19 @@ async def lvl(
     """
     try:
         name = name.lower()  # Normalize character name to lowercase
+        server_dir = f"server_{ctx.guild.id}"
+        filepath = os.path.join(server_dir, f"{name}_stats.csv")
+        with open(filepath, newline="") as file:
+            reader = csv.DictReader(file)
+            stats = list(reader)
+
+        for row in stats:
+            if row["Attribute"] == "Constitution":
+                const_modifier = int(row["Modifier"])
+                break
+        else:
+            raise ValueError("Const modifier not found.")
+
         # Check if the user is the creator of the character or has admin permissions
         creator_id = await get_character_creator_id(name, ctx.guild.id)
         if (
@@ -439,13 +453,69 @@ async def lvl(
                 delete_after=10,
             )
             return
+
+        # Dictionary defining the dice roll ranges for each D&D class
+        class_dice = {
+            "Sorcerer": (1, 6),
+            "Wizard": (1, 6),
+            "Artificer": (1, 8),
+            "Bard": (1, 8),
+            "Cleric": (1, 8),
+            "Druid": (1, 8),
+            "Monk": (1, 8),
+            "Rogue": (1, 8),
+            "Warlock": (1, 8),
+            "Fighter": (1, 10),
+            "Paladin": (1, 10),
+            "Ranger": (1, 10),
+            "Barbarian": (1, 12),
+        }
+
+        # Dictionary to store updated health values for each class
+        new_health_values = {}
+
+        # Retrieve the Constitution modifier from the first row with "Constitution" attribute
+        const_modifier = int(
+            next(row for row in stats if row["Attribute"] == "Constitution")["Modifier"]
+        )
+        # Loop through each row in the stats data
+        for row in stats:
+            # Extract the class of the character from the current row
+            dndclass = row["Class"]
+            # Retrieve the dice roll range for the current class from the class_dice dictionary
+            roll_range = class_dice.get(dndclass)
+            # Generate a random roll within the roll range
+            roll = randint(*roll_range)
+            # Calculate the new health by adding the roll and Constitution modifier
+            new_health = roll + const_modifier
+            # Retrieve the old health value from the current row
+            old_health = int(row["Health"])
+            # Update the new health value for the current class
+            new_health_values[dndclass] = new_health + const_modifier + old_health  # Note: Adding const_modifier again here to ensure it's applied correctly
+
+        # Update the health value for each row based on class
+        for row in stats:
+            row["Health"] = int(new_health_values.get(row["Class"], (row["Health"])))
+
+        with open(filepath, "w", newline="") as file:
+            fieldnames = [
+                "Name",
+                "Race",
+                "Class",
+                "Attribute",
+                "Value",
+                "Modifier",
+                "CreatorID",
+                "Level",
+                "Health",
+            ]
+            writer = csv.DictWriter(file, fieldnames=fieldnames)
+            writer.writeheader()
+            for row in stats:
+                writer.writerow(row)
+
         # Retrieve the stats table message if it already exists
         stats_message = None
-        async for message in ctx.channel.history(limit=3):
-            if message.author == ctx.guild.me and message.embeds:
-                if "Character's Stats" in message.embeds[0].title:
-                    stats_message = message
-                    break
         # Create an instance of MyView and send the message with the view
         view = await MyView.create(ctx, name, stats_message)
         msg = await view.send_message()
@@ -501,8 +571,9 @@ async def showall(ctx):
                 class_name = first_row.get("Class", "")
                 # Extract character name from the filename
                 char_name = filename.split("_stats.csv")[0]
+                char_lvl = first_row.get("Level", "")
                 # Append character name and race to the char_info list
-                char_info.append((char_name, race, class_name))
+                char_info.append((char_name, race, class_name, char_lvl))
         # Check if char_info is empty
         if not char_info:
             # Send message if no characters are found
@@ -511,8 +582,8 @@ async def showall(ctx):
             # Create a formatted list of character names and races
             char_list = "\n".join(
                 [
-                    f"• `Name`: {name}  `Race`: {race}  `Class`: {class_name}"
-                    for name, race, class_name in char_info
+                    f"• `Name`: {name}  `Race`: {race}  `Class`: {class_name}  `Level`: {char_lvl}"
+                    for name, race, class_name, char_lvl in char_info
                 ]
             )
             # Send message with list of saved characters

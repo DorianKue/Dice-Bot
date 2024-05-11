@@ -3,6 +3,7 @@ from discord.ext import commands  # Import the commands module from discord.ext
 import asyncio  # Import the asyncio module for handling asynchronous operations
 from discord import Intents  # Import the Intents class from discord module
 from components.classbuttons import CLView
+
 # Initialize the bot with specified parameters
 bot = commands.Bot(
     command_prefix=["/"],  # Define the prefix for command invocation
@@ -120,6 +121,7 @@ class RCView(discord.ui.View):
                         self.num_dice,
                         self.sides,
                         self.custom_race,
+                        modifier=None,
                     )
                     await interaction.followup.send(
                         content="Choose your class:", view=class_view
@@ -138,6 +140,7 @@ class RCView(discord.ui.View):
                     self.num_dice,
                     self.sides,
                     self.race,
+                    modifier=None,
                 )
                 followup_msg = await interaction.response.edit_message(
                     content="Choose your class:", view=class_view
@@ -175,7 +178,15 @@ class RCView(discord.ui.View):
             self._view = race
 
     def __init__(
-        self, ctx, character_name, num_dice, sides, race_name, dndclass, dndclass_name
+        self,
+        ctx,
+        character_name,
+        num_dice,
+        sides,
+        race_name,
+        dndclass,
+        dndclass_name,
+        modifier,
     ):
         """
         Initialize the RCView.
@@ -196,6 +207,7 @@ class RCView(discord.ui.View):
         self.race_name = race_name  # Store the name of the selected race
         self.dndclass_name = dndclass_name
         self.dndclass = dndclass
+        self.modifier = modifier
 
     async def add_buttons(self, race_name):
         """
@@ -231,7 +243,15 @@ class RCView(discord.ui.View):
 
     @classmethod
     async def create(
-        cls, ctx, race, num_dice, sides, race_name, dndclass, dndclass_name
+        cls,
+        ctx,
+        race,
+        num_dice,
+        sides,
+        race_name,
+        dndclass,
+        dndclass_name,
+        modifier,
     ):
         """
         Create an instance of RCView.
@@ -247,7 +267,14 @@ class RCView(discord.ui.View):
             RCView: The created instance of RCView.
         """
         self = RCView(
-            ctx, race, num_dice, sides, race_name, dndclass, dndclass_name
+            ctx,
+            race,
+            num_dice,
+            sides,
+            race_name,
+            dndclass,
+            dndclass_name,
+            modifier,
         )  # Initialize the instance
         await self.add_buttons(race_name)  # Add race selection buttons to the view
         return self
