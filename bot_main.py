@@ -443,7 +443,9 @@ async def lvl(
                 lvl = row["Level"]
 
         else:
-            raise ValueError("Const modifier not found.")
+            raise ValueError(
+                "Error: Constitution modifier not found - Can't calculate HP."
+            )
 
         # Check if the user is the creator of the character or has admin permissions
         creator_id = await get_character_creator_id(name, ctx.guild.id)
@@ -483,27 +485,27 @@ async def lvl(
         const_modifier = int(
             next(row for row in stats if row["Attribute"] == "Constitution")["Modifier"]
         )
-        # Loop through each row in the stats data
+        # Retrieve the character's class from the first row of the stats data
+        dndclass = stats[0]["Class"]
+        # Retrieve the dice roll range for the character's class
+        roll_range = class_dice.get(dndclass)
+        # Generate a random roll within the roll range
+        roll = randint(*roll_range)
+        # Calculate the new health by adding the roll and Constitution modifier
+        new_health = roll + const_modifier
+        print(f"ROLL: {roll} | MODIFIER: {const_modifier} NEW HEALTH: {new_health}")
+
         for row in stats:
-            # Extract the class of the character from the current row
-            dndclass = row["Class"]
-            # Retrieve the dice roll range for the current class from the class_dice dictionary
-            roll_range = class_dice.get(dndclass)
-            # Generate a random roll within the roll range
-            roll = randint(*roll_range)
-            # Calculate the new health by adding the roll and Constitution modifier
-            new_health = roll + const_modifier
             # Retrieve the old health value from the current row
             old_health = int(row["Health"])
             # Update the new health value for the current class
-            new_health_values[dndclass] = (
-                new_health + const_modifier + old_health
-            )  # Note: Adding const_modifier again here to ensure it's applied correctly
+            new_health_values[row["Class"]] = new_health + old_health
 
         # Update the health value for each row based on class
         for row in stats:
-            row["Health"] = int(new_health_values.get(row["Class"], (row["Health"])))
+            row["Health"] = new_health_values[row["Class"]]
 
+        # Write the updated stats data back to the CSV file
         with open(filepath, "w", newline="") as file:
             fieldnames = [
                 "Name",
@@ -518,6 +520,7 @@ async def lvl(
             ]
             writer = csv.DictWriter(file, fieldnames=fieldnames)
             writer.writeheader()
+            # Write each row of the updated stats data to the CSV file
             for row in stats:
                 writer.writerow(row)
 
@@ -546,7 +549,6 @@ async def lvl(
             except asyncio.TimeoutError:
                 await view.on_timeout()
         else:
-            print("Displaying character stats directly...")
             stats_message = await MyView.display_character_stats_lvl(
                 ctx, name, ctx.guild.id
             )
