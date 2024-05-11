@@ -437,6 +437,11 @@ async def lvl(
             if row["Attribute"] == "Constitution":
                 const_modifier = int(row["Modifier"])
                 break
+            if row["Class"] and row["Level"]:
+                row["Level"] = str(int(row["Level"]) + 1)
+                dndclass = row["Class"]
+                lvl = row["Level"]
+
         else:
             raise ValueError("Const modifier not found.")
 
@@ -491,7 +496,9 @@ async def lvl(
             # Retrieve the old health value from the current row
             old_health = int(row["Health"])
             # Update the new health value for the current class
-            new_health_values[dndclass] = new_health + const_modifier + old_health  # Note: Adding const_modifier again here to ensure it's applied correctly
+            new_health_values[dndclass] = (
+                new_health + const_modifier + old_health
+            )  # Note: Adding const_modifier again here to ensure it's applied correctly
 
         # Update the health value for each row based on class
         for row in stats:
@@ -514,22 +521,37 @@ async def lvl(
             for row in stats:
                 writer.writerow(row)
 
-        # Retrieve the stats table message if it already exists
-        stats_message = None
-        # Create an instance of MyView and send the message with the view
-        view = await MyView.create(ctx, name, stats_message)
-        msg = await view.send_message()
-        try:
-            # Wait for button click interaction within 180 seconds
-            interaction = await bot.wait_for(
-                "button_click",
-                timeout=150,
-                check=lambda interaction: interaction.message == msg
-                and interaction.user == ctx.author,
+        # Conditional to check if the character is eligible for an ability score improvement(ASI)
+        if (
+            lvl in ["4", "8", "12", "16", "19"]
+            or (lvl in ["4", "8", "10", "12", "16", "19"] and dndclass == "Rogue")
+            or (
+                lvl in ["4", "6", "8", "12", "14", "16", "19"] and dndclass == "Fighter"
             )
-        # Handle timeouts and disable buttons on timeout
-        except asyncio.TimeoutError:
-            await view.on_timeout()
+        ):
+            # Retrieve the stats table message if it already exists
+            stats_message = None
+            # Create an instance of MyView and send the message with the view
+            view = await MyView.create(ctx, name, stats_message)
+            msg = await view.send_message()
+            try:
+                # Wait for button click interaction within 180 seconds
+                interaction = await bot.wait_for(
+                    "button_click",
+                    timeout=150,
+                    check=lambda interaction: interaction.message == msg
+                    and interaction.user == ctx.author,
+                )
+            # Handle timeouts and disable buttons on timeout
+            except asyncio.TimeoutError:
+                await view.on_timeout()
+        else:
+            print("Displaying character stats directly...")
+            stats_message = await MyView.display_character_stats_lvl(
+                ctx, name, ctx.guild.id
+            )
+            await ctx.send(f"{stats_message}")
+
     except RuntimeError:
         # Send an error message if the character's savefile is not found
         await ctx.send(f"'{name}' savefile not found.", ephemeral=True, delete_after=15)
