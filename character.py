@@ -2,6 +2,7 @@ import random
 from tabulate import tabulate
 import os
 import csv
+import discord
 
 
 class Character:
@@ -107,7 +108,7 @@ class Character:
         return f"`Race`: {race_name}  `Class`: {dndclass}  `Level`: {level}  `Health`: {hp}\n```{stats_table}```"  # return the formatted table to Discord
 
     async def save_to_csv(
-        self, char_name, race_name, ctx, dndclass, invoker_id, lvl, hp: int
+        self, char_name, race_name, ctx: discord.Interaction, dndclass, invoker_id, lvl, hp: int
     ):
         """
         Save the character's stats to a CSV file.
@@ -126,15 +127,16 @@ class Character:
             # Construct directory path based on server ID
             server_dir = f"server_{self.server_id}"
             # Ensure the directory exists, if not, create it
-            os.makedirs(server_dir, exist_ok=True)
+            saves_dir = os.path.join("resources", "saves", server_dir)
+            os.makedirs(saves_dir, exist_ok=True)
             # Define the filename based on character name
             filename = f"{char_name}_stats.csv"
             # Construct the full file path
-            filepath = os.path.join(server_dir, filename)
+            filepath = os.path.join(saves_dir, filename)
             # Check if the file already exists
             file_exists = os.path.isfile(filepath)
             # Open the file in append mode if it exists, otherwise in write mode - For now only in write mode. Don't want to append but left it in, in case i need it.
-            with open(filepath, "w" if file_exists else "w", newline="") as file:
+            with open(filepath, "w", newline="") as file:
                 # Define field names for CSV header
                 fieldnames = [
                     "Name",
@@ -174,7 +176,7 @@ class Character:
             return f"Character stats for '{char_name}' have been saved."
         except Exception as e:
             # Send error message if an exception occurs
-            await ctx.send(
+            await ctx.followup.send(
                 f"An error occurred while trying to save: {e}", ephemeral=True
             )
 
@@ -194,8 +196,9 @@ class Character:
         try:
             # Construct directory path based on server ID
             server_dir = f"server_{server_id}"
+            saves_dir = os.path.join("resources", "saves", server_dir)
             # Construct the full file path
-            filepath = os.path.join(server_dir, f"{char_name}_stats.csv")
+            filepath = os.path.join(saves_dir, f"{char_name}_stats.csv")
             # Open the CSV file
             with open(filepath, newline="") as file:
                 # Create a CSV DictReader
@@ -274,8 +277,9 @@ class Character:
         """
         # Construct directory path based on server ID
         server_dir = f"server_{ctx.guild.id}"
+        saves_dir = os.path.join("resources", "saves", server_dir)
         # Construct the full file path
-        filepath = os.path.join(server_dir, f"{name}_stats.csv")
+        filepath = os.path.join(saves_dir, f"{name}_stats.csv")
 
         # Read character stats from the CSV file
         with open(filepath, newline="") as file:

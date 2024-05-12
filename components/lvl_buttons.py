@@ -255,8 +255,9 @@ class MyView(discord.ui.View):
         try:
             # Construct directory path based on server ID
             server_dir = f"server_{server_id}"
+            saves_dir = os.path.join("resources", "saves", server_dir)
             # Construct the full file path
-            filepath = os.path.join(server_dir, f"{char_name}_stats.csv")
+            filepath = os.path.join(saves_dir, f"{char_name}_stats.csv")
             # Open the CSV file
             with open(filepath, newline="") as file:
                 # Create a CSV DictReader

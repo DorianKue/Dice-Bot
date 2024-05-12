@@ -78,10 +78,11 @@ class RView(discord.ui.View):
         if interaction.user == self.ctx.author:
             # Construct server directory name based on guild ID
             server_dir = f"server_{self.ctx.guild.id}"
+            saves_dir = os.path.join("resources", "saves", server_dir)
             # Construct filename
             filename = f"{self.name}_stats.csv"
             # Construct full filepath
-            filepath = os.path.join(server_dir, filename)
+            filepath = os.path.join(saves_dir, filename)
 
             # Open the character's stats file
             with open(filepath, newline="") as file:

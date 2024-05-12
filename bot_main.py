@@ -312,8 +312,10 @@ async def roll(ctx: discord.Interaction, roll_input: str, character_name: str):
             )
             return
 
+        server_dir = f"server_{ctx.guild.id}"
+        saves_dir = os.path.join("resources", "saves", server_dir)
         # Check if the character name already exists
-        if os.path.isfile(f"server_{ctx.guild.id}/{character_name}_stats.csv"):
+        if os.path.isfile(f"{saves_dir}/{character_name}_stats.csv"):
             await ctx.send(
                 f"Character with name '{character_name}' already exists. Please choose a different name.",
                 ephemeral=True,
@@ -408,7 +410,8 @@ async def lvl(
         # Normalize character name to lowercase
         name = name.lower()
         server_dir = f"server_{ctx.guild.id}"
-        filepath = os.path.join(server_dir, f"{name}_stats.csv")
+        saves_dir = os.path.join("resources", "saves", server_dir)
+        filepath = os.path.join(saves_dir, f"{name}_stats.csv")
         with open(filepath, newline="") as file:
             reader = csv.DictReader(file)
             stats = list(reader)
@@ -547,13 +550,14 @@ async def showall(ctx):
     try:
         # Construct directory path based on server ID
         server_dir = f"server_{ctx.guild.id}"
+        saves_dir = os.path.join("resources", "saves", server_dir)
         # Get a list of files in the server directory
-        files = os.listdir(server_dir)
+        files = os.listdir(saves_dir)
         # Extract character names from filenames
         char_info = []
         for filename in files:
             # Open each file in the server directory
-            with open(os.path.join(server_dir, filename), newline="") as file:
+            with open(os.path.join(saves_dir, filename), newline="") as file:
                 # Create a CSV DictReader to read the file
                 reader = csv.DictReader(file)
                 try:
@@ -619,8 +623,9 @@ async def rm(ctx, *, name: str):
             return
         view = RView(ctx, name)  # Create an instance of RView
         server_dir = f"server_{ctx.guild.id}"  # Construct server directory name
+        saves_dir = os.path.join("resources", "saves", server_dir)
         filename = f"{name}_stats.csv"  # Construct filename
-        filepath = os.path.join(server_dir, filename)  # Construct full filepath
+        filepath = os.path.join(saves_dir, filename)  # Construct full filepath
         if not os.path.isfile(filepath):  # Check if file exists
             await ctx.send(
                 f"'{name}' savefile not found.", ephemeral=True, delete_after=20
