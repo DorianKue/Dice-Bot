@@ -1,10 +1,8 @@
-from character import Character  # Import the Character class from the character module
-import discord  # Import the discord module
+from character import Character
+import discord
 
 
-class YView(
-    discord.ui.View
-):  # Define a custom view class YView inheriting from discord.ui.View
+class YView(discord.ui.View):
     """
     A custom view for handling Yes/No buttons.
     """

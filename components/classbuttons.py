@@ -40,7 +40,6 @@ class CLView(discord.ui.View):
                 race_name (str): The name of the character's race.
                 invoker_id (int): The ID of the user who invoked the command.
             """
-            # Initialize button properties
             self.num_dice = num_dice
             self.sides = sides
             self.ctx = ctx

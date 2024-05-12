@@ -54,7 +54,7 @@ class Character:
                 )
         else:
             # Calculate modifier for a specific stat
-            modifier = (stat_value - 10) // 2  # Calculate the modifier
+            modifier = (stat_value - 10) // 2
             return modifier  # Return the calculated modifier
 
     def determine_start_hp(self, class_name):
@@ -75,30 +75,6 @@ class Character:
             return int(const_modifier + 10)
         else:
             return int(const_modifier + 12)
-
-    async def level_up_hp(self, class_name, hp, modifier):
-        const_modifier = modifier
-        if class_name in ["Sorcerer", "Wizard"]:
-            roll = random.randint(1, 6)
-            return int(hp) + roll + const_modifier
-        elif class_name in [
-            "Artificer",
-            "Bard",
-            "Cleric",
-            "Druid",
-            "Monk",
-            "Rogue",
-            "Warlock",
-        ]:
-            roll = random.randint(1, 8)
-            return int(hp) + roll + const_modifier
-        elif class_name in ["Fighter", "Paladin", "Ranger"]:
-            roll = random.randint(1, 10)
-            return int(hp) + roll + const_modifier
-        else:
-            roll = random.randint(1, 12)
-            print(f"HP: {hp} {roll}, {const_modifier}")
-            return int(hp) + roll + const_modifier
 
     def show_stats(self, ctx, race_name, dndclass, level, hp):
         """
@@ -288,6 +264,14 @@ class Character:
 
     @classmethod
     async def update_character_stat(cls, ctx, name, selected_stat):
+        """
+        Method to update the character's stats and modifier
+
+        Args:
+             ctx: The context object representing the invocation context.
+             name (str): The name of the character.
+             selected_stat (str): The user selected stat, which is to be upgraded.
+        """
         # Construct directory path based on server ID
         server_dir = f"server_{ctx.guild.id}"
         # Construct the full file path

@@ -1,7 +1,7 @@
-import discord  # Import the discord module
-from discord.ext import commands  # Import the commands module from discord.ext
-import asyncio  # Import the asyncio module for handling asynchronous operations
-from discord import Intents  # Import the Intents class from discord module
+import discord
+from discord.ext import commands
+import asyncio
+from discord import Intents
 from components.classbuttons import CLView
 
 # Initialize the bot with specified parameters
@@ -56,7 +56,6 @@ class RCView(discord.ui.View):
                 sides (int): Number of sides for rolling stats.
                 race_name (str): The name of the selected race.
             """
-            # Initialize attributes
             self.ctx = ctx  # Store the interaction context
             self.race = race  # Store the race associated with the button
             self._view = view  # Store the parent view

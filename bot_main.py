@@ -1,17 +1,13 @@
 import discord
-from discord import (
-    Intents,
-)  # Import necessary modules from Discord API
-from discord.ext import commands  # Import commands extension
-from random import randint, choice  # Import random module for generating random numbers
-from dotenv import (
-    load_dotenv,
-)  # Import load_dotenv function to load environment variables
-import os  # Import os module for interacting with the operating system
-import csv  # Import csv module for working with CSV files
-import asyncio  # Import asyncio module for asynchronous programming
-import re  # Import re module to use regular expressions
-from character import Character  # Import the Character class from character.py
+from discord import Intents
+from discord.ext import commands
+from random import randint, choice
+from dotenv import load_dotenv
+import os
+import csv
+import asyncio
+import re
+from character import Character
 from components.lvl_buttons import MyView
 from commands.help import CustomHelpCommand
 from components.rm_buttons import RView
@@ -116,10 +112,6 @@ async def get_character_creator_id(char_name, server_id):
 async def help_cogs(ctx):
     """
     Asynchronously adds the CustomHelpCommand cog to the bot.
-
-    This function is used to add the CustomHelpCommand cog to the bot.
-    The CustomHelpCommand cog provides custom help functionality for displaying bot commands.
-    This function is typically called when the bot is initialized or when the help command is invoked.
 
     Args:
         ctx (commands.Context): The context representing the invocation context of the command.
@@ -391,7 +383,7 @@ async def stats(ctx, *, name: str):
 
 @bot.hybrid_command(
     name="lvl",
-    description="Add 2 stat points of your choosing to your character. E.g. /lvl bob",
+    description="Increase your Hp and get an ability score improvement if applicable. E.g. /lvl bob",
 )
 async def lvl(
     ctx,
@@ -399,9 +391,9 @@ async def lvl(
     name,
 ):
     """
-    Allows the user to add 2 stat points of their choosing to a character.
+    Increases the Character's health and if applicable, grants two stat points the user can use to increase stats of their choosing.
 
-    Parameters:
+    Args:
     - ctx (commands.Context): The context of the command.
     - name (str): The name of the character to level up.
 
@@ -411,22 +403,10 @@ async def lvl(
 
     Returns:
     - None
-
-    The function first checks the authorization of the user to level up the character,
-    ensuring they are either the creator of the character or have admin permissions.
-
-    It then attempts to retrieve the latest stats message for the character.
-
-    Next, it creates an instance of the MyView class, which handles the interactive
-    button-based interface for leveling up the character.
-
-    If the user does not interact with the buttons within 180 seconds, the function
-    handles the timeout by disabling the buttons.
-
-    If any errors occur during execution, appropriate error messages are sent.
     """
     try:
-        name = name.lower()  # Normalize character name to lowercase
+        # Normalize character name to lowercase
+        name = name.lower()
         server_dir = f"server_{ctx.guild.id}"
         filepath = os.path.join(server_dir, f"{name}_stats.csv")
         with open(filepath, newline="") as file:
@@ -480,20 +460,12 @@ async def lvl(
 
         # Dictionary to store updated health values for each class
         new_health_values = {}
-
-        # Retrieve the Constitution modifier from the first row with "Constitution" attribute
-        const_modifier = int(
-            next(row for row in stats if row["Attribute"] == "Constitution")["Modifier"]
-        )
-        # Retrieve the character's class from the first row of the stats data
-        dndclass = stats[0]["Class"]
         # Retrieve the dice roll range for the character's class
         roll_range = class_dice.get(dndclass)
         # Generate a random roll within the roll range
         roll = randint(*roll_range)
         # Calculate the new health by adding the roll and Constitution modifier
         new_health = roll + const_modifier
-        print(f"ROLL: {roll} | MODIFIER: {const_modifier} NEW HEALTH: {new_health}")
 
         for row in stats:
             # Retrieve the old health value from the current row
@@ -684,7 +656,7 @@ async def random(ctx, *, number):
     """
     Generates a random number within a specified range or up to a specified number.
 
-    Parameters:
+    Args:
         ctx (discord.Context): The context object for the command.
         number (str): Input provided by the user in the format "<min>-<max>" or "<max>".
 
@@ -741,7 +713,7 @@ async def coinflip(ctx):
     """
     Flips a coin.
 
-    Parameters:
+    Args:
         ctx (discord.Context): The context object for the command.
 
     Returns:
@@ -774,7 +746,7 @@ async def coinflip(ctx):
 @bot.hybrid_command(name="wrist", description="Big sad :(")
 async def wrist(ctx):
     """
-    Joke command because after i mentioned "slash" commands to him, he suggested to make a command called wrist lol.
+    Joke command because after i mentioned "slash" commands to a friend, he suggested to make a command called wrist because slash wrist lol.
 
     Parameters:
         ctx (discord.Context): The context object for the command.

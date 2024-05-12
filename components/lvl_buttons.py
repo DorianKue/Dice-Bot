@@ -1,7 +1,5 @@
-from character import (
-    Character,
-)  # Importing the Character class from the character module
-import discord  # Importing the discord module
+from character import Character
+import discord
 import os
 import csv
 from tabulate import tabulate
@@ -153,7 +151,7 @@ class MyView(discord.ui.View):
                 self.max_clicks,
                 self,
                 self.stats_content,
-            )  # Create a new button
+            )
             # Add the button to the view
             self.add_item(button)
 
@@ -249,8 +247,6 @@ class MyView(discord.ui.View):
             self.message = message
 
         return self.stats_content  # Return the stats table content for later use
-
-        # return self.stats_content  # Return the stats table content for later use
 
     @staticmethod
     async def display_character_stats_lvl(

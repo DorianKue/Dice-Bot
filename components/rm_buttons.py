@@ -1,6 +1,6 @@
-import os  # Import the os module for operating system functionalities
-import csv  # Import the csv module for reading and writing CSV files
-import discord  # Import the discord module for Discord API functionalities
+import os
+import csv
+import discord
 
 
 class RView(discord.ui.View):
