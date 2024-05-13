@@ -1,6 +1,8 @@
 import discord
 from discord import Intents
 from discord.ext import commands
+from discord.ui import View
+import math
 from random import randint, choice
 from dotenv import load_dotenv
 import os
@@ -108,6 +110,15 @@ async def get_character_creator_id(char_name, server_id):
                         creator_id = row["CreatorID"]
                         return creator_id
     return None
+
+
+async def disable_button(button_id):
+    async def predicate(interaction):
+        if interaction.data["custom_id"] == button_id:
+            return True
+        return False
+
+    return predicate
 
 
 async def help_cogs(ctx):
@@ -450,7 +461,7 @@ async def stats(ctx, *, name: str):
     description="Increase your Hp and get an ability score improvement if applicable. E.g. /lvl bob",
 )
 async def lvl(
-    ctx,
+    ctx: discord.Interaction,
     *,
     name,
 ):
@@ -468,31 +479,39 @@ async def lvl(
     Returns:
     - None
     """
+
     try:
         # Normalize character name to lowercase
         name = name.lower()
+        # Construct paths for the server and saves directories
         server_dir = f"server_{ctx.guild.id}"
         saves_dir = os.path.join("resources", "saves", server_dir)
+        # Construct file path for the character's stats file
         filepath = os.path.join(saves_dir, f"{name}_stats.csv")
+        # Open the character's stats file
         with open(filepath, newline="") as file:
             reader = csv.DictReader(file)
             stats = list(reader)
 
+        # Update the character's level
         for row in stats:
-            if row["Attribute"] == "Constitution":
-                const_modifier = int(row["Modifier"])
-                break
             if row["Class"] and row["Level"]:
                 row["Level"] = str(int(row["Level"]) + 1)
                 dndclass = row["Class"]
                 lvl = row["Level"]
 
+        # Retrieve the Constitution modifier for calculating HP
+        for row in stats:
+            if row["Attribute"] == "Constitution":
+                const_modifier = int(row["Modifier"])
+                break
         else:
+            # Raise an error if Constitution modifier is not found
             raise ValueError(
                 "Error: Constitution modifier not found - Can't calculate HP."
             )
 
-        # Check if the user is the creator of the character or has admin permissions
+        # Check if the user is authorized to level up the character
         creator_id = await get_character_creator_id(name, ctx.guild.id)
         if (
             ctx.author.id != creator_id
@@ -506,7 +525,7 @@ async def lvl(
             )
             return
 
-        # Dictionary defining the dice roll ranges for each D&D class
+        # Define hit dice for each character class
         class_dice = {
             "Sorcerer": (1, 6),
             "Wizard": (1, 6),
@@ -523,75 +542,199 @@ async def lvl(
             "Barbarian": (1, 12),
         }
 
-        # Dictionary to store updated health values for each class
-        new_health_values = {}
-        # Retrieve the dice roll range for the character's class
-        roll_range = class_dice.get(dndclass)
-        # Generate a random roll within the roll range
-        roll = randint(*roll_range)
-        # Calculate the new health by adding the roll and Constitution modifier
-        new_health = roll + const_modifier
-
-        for row in stats:
-            # Retrieve the old health value from the current row
-            old_health = int(row["Health"])
-            # Update the new health value for the current class
-            new_health_values[row["Class"]] = new_health + old_health
-
-        # Update the health value for each row based on class
-        for row in stats:
-            row["Health"] = new_health_values[row["Class"]]
-
-        # Write the updated stats data back to the CSV file
-        with open(filepath, "w", newline="") as file:
-            fieldnames = [
-                "Name",
-                "Race",
-                "Class",
-                "Attribute",
-                "Value",
-                "Modifier",
-                "CreatorID",
-                "Level",
-                "Health",
-            ]
-            writer = csv.DictWriter(file, fieldnames=fieldnames)
-            writer.writeheader()
-            # Write each row of the updated stats data to the CSV file
-            for row in stats:
-                writer.writerow(row)
-
-        # Conditional to check if the character is eligible for an ability score improvement(ASI)
-        if (
-            lvl in ["4", "8", "12", "16", "19"]
-            or (lvl in ["4", "8", "10", "12", "16", "19"] and dndclass == "Rogue")
-            or (
-                lvl in ["4", "6", "8", "12", "14", "16", "19"] and dndclass == "Fighter"
-            )
-        ):
-            # Retrieve the stats table message if it already exists
-            stats_message = None
-            # Create an instance of MyView and send the message with the view
-            view = await MyView.create(ctx, name, stats_message)
-            msg = await view.send_message()
+        # Create buttons for rolling HP or taking average
+        hp_roll = discord.ui.Button(
+            label="Roll", custom_id="rollbutton", style=discord.ButtonStyle.red
+        )
+        hp_avg = discord.ui.Button(
+            label="Average", custom_id="avgroll", style=discord.ButtonStyle.green
+        )
+        # Create a view for the buttons
+        hp_view = View()
+        hp_view.add_item(hp_avg)
+        hp_view.add_item(hp_roll)
+        # Send a message asking the user how to increase HP
+        hp_msg = await ctx.send(
+            "How would you like to increase your HP? Roll for it using your hit dice or take the average?",
+            view=hp_view,
+        )
+        interaction_flag = False
+        # Start an indefinite loop to wait for user interactions
+        while True:
             try:
-                # Wait for button click interaction within 180 seconds
+                # Wait for an interaction within a timeout period
                 interaction = await bot.wait_for(
-                    "button_click",
-                    timeout=150,
-                    check=lambda interaction: interaction.message == msg
-                    and interaction.user == ctx.author,
+                    "interaction",
+                    timeout=120,
+                    # Check if the interaction is a button click from the same user or another user
+                    check=lambda interaction: (
+                        interaction.type == discord.InteractionType.component
+                        and interaction.user == ctx.author
+                        or interaction.user != ctx.author
+                    ),
                 )
-            # Handle timeouts and disable buttons on timeout
-            except asyncio.TimeoutError:
-                await view.on_timeout()
-        else:
-            stats_message = await MyView.display_character_stats_lvl(
-                ctx, name, ctx.guild.id
-            )
-            await ctx.send(f"{stats_message}")
+                interaction_flag = True
 
-    except RuntimeError:
+                # Check if the interaction is from the command invoker
+                if interaction.user == ctx.author:
+                    # Check if the user chose to roll for HP
+                    if interaction.data.get("custom_id") == "rollbutton":
+                        # Disable buttons after selection
+                        for item in hp_view.children:
+                            if isinstance(item, discord.ui.Button):
+                                item.style = discord.ButtonStyle.grey
+                                item.disabled = True
+                        # Edit the message to indicate the user's choice
+                        await interaction.response.edit_message(
+                            content="You chose to roll", view=hp_view
+                        )
+
+                        # Dictionary defining the dice roll ranges for each D&D class
+                        new_health_values = {}
+                        # Retrieve the dice roll range for the character's class
+                        roll_range = class_dice.get(dndclass)
+                        # Generate a random roll within the roll range
+                        roll = randint(*roll_range)
+                        # Calculate the new health by adding the roll and Constitution modifier
+                        new_health = roll + const_modifier
+
+                        # Update the health value for each class
+                        for row in stats:
+                            old_health = int(row["Health"])
+                            new_health_values[row["Class"]] = new_health + old_health
+
+                        # Write the updated stats data back to the CSV file
+                        with open(filepath, "w", newline="") as file:
+                            fieldnames = [
+                                "Name",
+                                "Race",
+                                "Class",
+                                "Attribute",
+                                "Value",
+                                "Modifier",
+                                "CreatorID",
+                                "Level",
+                                "Health",
+                            ]
+                            writer = csv.DictWriter(file, fieldnames=fieldnames)
+                            writer.writeheader()
+                            # Write each row of the updated stats data to the CSV file
+                            for row in stats:
+                                writer.writerow(row)
+
+                        # Conditional to check if the character is eligible for an ability score improvement(ASI)
+                        if (
+                            lvl in ["4", "8", "12", "16", "19"]
+                            or (
+                                lvl in ["4", "8", "10", "12", "16", "19"]
+                                and dndclass == "Rogue"
+                            )
+                            or (
+                                lvl in ["4", "6", "8", "12", "14", "16", "19"]
+                                and dndclass == "Fighter"
+                            )
+                        ):
+                            # Create and display a view for ability score improvements
+                            view = await MyView.create(ctx, name, None)
+                            msg = await view.send_message()
+                        else:
+                            # Display character stats after leveling up
+                            stats_message = await MyView.display_character_stats_lvl(
+                                ctx, name, ctx.guild.id
+                            )
+                            await hp_msg.edit(
+                                content=f"{stats_message}You chose to roll"
+                            )
+
+                    # Check if the user chose to take the average for HP
+                    elif interaction.data.get("custom_id") == "avgroll":
+                        # Disable buttons after selection
+                        for item in hp_view.children:
+                            if isinstance(item, discord.ui.Button):
+                                item.style = discord.ButtonStyle.grey
+                                item.disabled = True
+                        # Edit the message to indicate the user's choice
+                        await interaction.response.edit_message(
+                            content="You chose to take the average", view=hp_view
+                        )
+                        # Initialize an empty dictionary to store new health values
+                        new_health_values = {}
+                        # Retrieve the dice roll range for the character's class
+                        avg_range = class_dice.get(dndclass)
+                        # Calculate the average health value to add based on the class's hit dice
+                        average_to_add = math.ceil(sum(avg_range) / len(avg_range))
+                        new_avg_health = average_to_add + const_modifier
+                        # Iterate through each row in the stats data
+                        for row in stats:
+                            # Retrieve the old health value from the current row
+                            old_health = int(row["Health"])
+                            # Calculate the new health value by adding the new average health gain and old health
+                            new_health_values[row["Class"]] = (
+                                new_avg_health + old_health
+                            )
+                        # Update the health value for each row
+                        for row in stats:
+                            row["Health"] = new_health_values[row["Class"]]
+                        # Write the updated stats data back to the CSV file
+                        with open(filepath, "w", newline="") as file:
+                            fieldnames = [
+                                "Name",
+                                "Race",
+                                "Class",
+                                "Attribute",
+                                "Value",
+                                "Modifier",
+                                "CreatorID",
+                                "Level",
+                                "Health",
+                            ]
+                            writer = csv.DictWriter(file, fieldnames=fieldnames)
+                            writer.writeheader()
+                            # Write each row of the updated stats data to the CSV file
+                            for row in stats:
+                                writer.writerow(row)
+                        # Check if the character is eligible for an ability score improvement(ASI)
+                        if (
+                            lvl in ["4", "8", "12", "16", "19"]
+                            or (
+                                lvl in ["4", "8", "10", "12", "16", "19"]
+                                and dndclass == "Rogue"
+                            )
+                            or (
+                                lvl in ["4", "6", "8", "12", "14", "16", "19"]
+                                and dndclass == "Fighter"
+                            )
+                        ):
+                            # If eligible, prepare to display ASI options
+                            stats_message = None
+                            # Create an instance of MyView and send the message with the view
+                            view = await MyView.create(ctx, name, stats_message)
+                            msg = await view.send_message()
+                        else:
+                            # If not eligible, display character stats after leveling up
+                            stats_message = await MyView.display_character_stats_lvl(
+                                ctx, name, ctx.guild.id
+                            )
+                            await hp_msg.edit(
+                                content=f"{stats_message}You chose to take the average"
+                            )
+                else:
+                    await interaction.response.send_message(
+                        "You can't do that :thinking:", ephemeral=True, delete_after=15
+                    )
+                    continue
+                if interaction_flag:
+                    break
+            except asyncio.TimeoutError:
+                if interaction_flag:
+                    break
+                else:
+                    for item in hp_view.children:
+                        if isinstance(item, discord.ui.Button):
+                            item.style = discord.ButtonStyle.grey
+                            item.disabled = True
+                    await hp_msg.edit(content="Selection timed out.", view=hp_view)
+    except FileNotFoundError:
         # Send an error message if the character's savefile is not found
         await ctx.send(f"'{name}' savefile not found.", ephemeral=True, delete_after=15)
     except Exception as e:
