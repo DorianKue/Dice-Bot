@@ -67,6 +67,7 @@ python bot_main.py
 - **Help Command**: The `/help` command shows a full list of commands.
 - **Rolling Dice**: `/roll` command allows you to roll dice with the specified parameters. Example with modifier: `/roll 2d6+3` - Modifier can be negative. - No modifier: `/roll 2d6`.
 - **Creating Characters**: Use the `/roll_char` command to create a character. Includes race and class selection. Example: `/roll_char 4d6 Bob`- Command excludes the lowest roll for stats.
+- **Create a random Character**: The `random_char`command gives you a character with a random class and race and stats rolled with 4d6. Example: `/random_char Bob`.
 - **Displaying Character Stats**: Use the `/stats` command to display character stats. Example: `/stats Bob`.
 - **Displaying all Characters**: Simply type `/showall`.
 - **Leveling a Character**: Type `/lvl` followed by the name of your character to increase its health and if applicable gain attribute points to spend. Example `/lvl Bob`.

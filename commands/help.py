@@ -46,6 +46,16 @@ class CustomHelpCommand(commands.Cog):
             inline=False,  # Display the field in a new line
         )
 
+
+        # Add a field for creating a  random character
+        embed.add_field(
+            name="Create a character with a random class and race using 4d6 (__Excludes__ the lowest roll):",  # Title of the field
+            value="`/random_char Name` - where Name is the name of your Character.\n"
+            "Example: `/random_char bob`",  # Value of the field
+            inline=False,  # Display the field in a new line
+        )
+
+
         # Add a field for showing created character stats
         embed.add_field(
             name="Showing created character stats:",  # Title of the field
