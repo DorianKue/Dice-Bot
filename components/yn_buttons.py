@@ -61,11 +61,11 @@ class YView(discord.ui.View):
         """
         if interaction.user.id == self.invoker_id:
             await self.disable_buttons()  # Disable all buttons in the view
-            hp = self.player.determine_start_hp(self.dndclass)
+            hp = await self.player.determine_start_hp(self.dndclass)
             hp = int(hp)
             lvl = 1
             await interaction.response.edit_message(
-                content=self.player.show_stats(
+                content=await self.player.show_stats(
                     self.ctx, self.race_name, self.dndclass, lvl, hp
                 ),
                 view=self,
@@ -103,13 +103,13 @@ class YView(discord.ui.View):
             player = Character(
                 self.character_name, self.ctx.guild.id
             )  # Create a Character object
-            player.roll_stats(self.num_dice, self.sides)  # Roll character stats
+            await player.roll_stats(self.num_dice, self.sides)  # Roll character stats
             await self.disable_buttons()  # Disable all buttons in the view
-            hp = player.determine_start_hp(self.dndclass)
+            hp = await player.determine_start_hp(self.dndclass)
             hp = int(hp)
             lvl = 1
             await interaction.response.edit_message(
-                content=player.show_stats(
+                content=await player.show_stats(
                     self.ctx, self.race_name, self.dndclass, lvl, hp
                 ),
                 view=self,

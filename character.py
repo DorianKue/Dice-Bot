@@ -22,13 +22,13 @@ class Character:
         self.ability_score_modifier = {}  # Initialize ability score modifier dictionary
         self.server_id = server_id
 
-    def roll_stats(self, num_dice, sides):
+    async def roll_stats(self, num_dice, sides):
         """Roll the character's stats based on the number of dice and sides."""
         for stat in self.stats:  # Iterate through each stat
             self.stats[stat] = self.determine_stats(
                 num_dice, sides
             )  # Roll the dice and assign the result to the stat
-            self.calculate_modifier()  # Calculate the modifier for the rolled stats
+            await self.calculate_modifier()  # Calculate the modifier for the rolled stats
 
     def determine_stats(self, num_dice, sides):
         """Determine the stats by rolling the dice."""
@@ -41,7 +41,7 @@ class Character:
         else:
             return sum(rolls)
 
-    def calculate_modifier(self, stat_value=None):
+    async def calculate_modifier(self, stat_value=None):
         """Calculate the ability score modifiers."""
         if stat_value is None:
             # Calculate modifiers for all stats
@@ -58,7 +58,7 @@ class Character:
             modifier = (stat_value - 10) // 2
             return modifier  # Return the calculated modifier
 
-    def determine_start_hp(self, class_name):
+    async def determine_start_hp(self, class_name):
         const_modifier = int(self.ability_score_modifier.get("Constitution", 0))
         if class_name in ["Sorcerer", "Wizard"]:
             return int(const_modifier + 6)
@@ -77,7 +77,7 @@ class Character:
         else:
             return int(const_modifier + 12)
 
-    def show_stats(self, ctx, race_name, dndclass, level, hp):
+    async def show_stats(self, ctx, race_name, dndclass, level, hp):
         """
         Display the character's stats.
 
@@ -108,7 +108,14 @@ class Character:
         return f"`Race`: {race_name}  `Class`: {dndclass}  `Level`: {level}  `Health`: {hp}\n```{stats_table}```"  # return the formatted table to Discord
 
     async def save_to_csv(
-        self, char_name, race_name, ctx: discord.Interaction, dndclass, invoker_id, lvl, hp: int
+        self,
+        char_name,
+        race_name,
+        ctx: discord.Interaction,
+        dndclass,
+        invoker_id,
+        lvl,
+        hp: int,
     ):
         """
         Save the character's stats to a CSV file.
@@ -292,7 +299,7 @@ class Character:
                 # Update the stat value
                 stat["Value"] = str(int(stat["Value"]) + 1)
                 # Calculate the new modifier using the instance method
-                new_modifier = Character(name, ctx.guild.id).calculate_modifier(
+                new_modifier = await Character(name, ctx.guild.id).calculate_modifier(
                     int(stat["Value"])
                 )
                 # Update the modifier

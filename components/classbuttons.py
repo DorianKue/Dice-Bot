@@ -82,11 +82,11 @@ class CLView(discord.ui.View):
             # Create a Character instance
             player = Character(self._view.character_name, self._view.ctx.guild.id)
             # Roll character stats
-            player.roll_stats(self.num_dice, self.sides)
-            hp = player.determine_start_hp(self.dndclass)
+            await player.roll_stats(self.num_dice, self.sides)
+            hp = await player.determine_start_hp(self.dndclass)
             lvl = 1
             # Get stats table
-            stats_table = player.show_stats(
+            stats_table = await player.show_stats(
                 self.ctx, self.race_name, self.dndclass, lvl, hp
             )
             # Create YView for reroll prompt

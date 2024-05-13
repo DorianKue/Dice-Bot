@@ -12,6 +12,7 @@ from components.lvl_buttons import MyView
 from commands.help import CustomHelpCommand
 from components.rm_buttons import RView
 from components.racebuttons import RCView
+from components.rnd_char import RandView
 
 
 async def get_custom_prefix(bot, message):
@@ -352,6 +353,67 @@ async def roll(ctx: discord.Interaction, roll_input: str, character_name: str):
             await message.edit(content="Race selection timed out", view=raceview)
     except Exception as e:
         # Handle any other exceptions
+        await ctx.send(f"An error occurred: {e}", ephemeral=True)
+
+
+@bot.hybrid_command(
+    name="random_char",
+    description="Let the bot create a random character for you with 4d6 dice.",
+)
+async def random_roll(ctx: discord.Interaction, *, character_name: str):
+    """
+    Create a character with a random class and race, using 4d6 dice rolls.
+
+    Args:
+        ctx (discord.Interaction): The context object representing the invocation context.
+        character_name (str): The name of the character.
+
+    Returns:
+        None
+    """
+    try:
+        server_id = (
+            ctx.guild.id
+        )  # Get the ID of the server where the command was invoked
+        invoker_id = ctx.author.id  # Get the ID of the user who invoked the command
+        server_dir = (
+            f"server_{ctx.guild.id}"  # Construct the directory name based on server ID
+        )
+        saves_dir = os.path.join(
+            "resources", "saves", server_dir
+        )  # Construct the directory path for saving character data
+
+        # Check if the character name already exists
+        if os.path.isfile(f"{saves_dir}/{character_name}_stats.csv"):
+            await ctx.send(
+                f"Character with name '{character_name}' already exists. Please choose a different name.",
+                ephemeral=True,
+                delete_after=30,
+            )
+            return
+
+        # Create a RandView instance to handle the character creation UI
+        randomview = RandView(ctx, character_name, server_id, invoker_id)
+
+        # Send a message with the UI for creating a character and await a response
+        random_char_msg = await ctx.send(
+            await randomview.create_char(), view=randomview
+        )
+
+        # Wait for a button click from the user, with a timeout of 120 seconds
+        try:
+            await bot.wait_for(
+                "button_click",
+                timeout=120,
+                check=lambda interaction: ctx.message == random_char_msg
+                and interaction.user == ctx.author,
+            )
+        except asyncio.TimeoutError:
+            # Handle timeout by disabling buttons and updating the message content
+            await randomview.on_timeout()
+            await random_char_msg.edit(content="Selection timed out", view=randomview)
+    except Exception as e:
+        # Handle any exceptions that occur during the execution of the command
         await ctx.send(f"An error occurred: {e}", ephemeral=True)
 
 
