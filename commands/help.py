@@ -59,7 +59,7 @@ class CustomHelpCommand(commands.Cog):
             value=(
                 "`/lvl Name` - where `Name` is the name of your character.\n"
                 "Example: `/lvl bob`.\n"
-                "This command allows you to add 2 stat points of your choosing to your character."
+                "Levels up your character and increases their health. This command also allows you to add 2 stat points of your choosing to your character, if eligible for an ASI."
             ),  # Value for the field
             inline=False,
         )
