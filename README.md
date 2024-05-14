@@ -79,6 +79,10 @@ python bot_main.py
 -**Remove custom prefix**: If you want to remove your previously set custom prefix and have admin privileges, simply use `/rmprefix`.
 
 
+## Planned features
+
+-**Add Backgrounds and Traits**: Eventually i want to add backgrounds and traits to the character creation and the possibility to acquire new traits on level up, if applicable.
+However, there are so many traits and backgrounds, some with sizeable descriptions, i'm not entirely sure how i would want to implement that. I do know it would involve refactoring a lot of my, arguably very messy, code. So for now it's planned but it's more of a long term goal. This is my first project and so i want to move on and learn new things before coming back to this and adding such a large feature.
 
 ## Contributing
 
@@ -88,6 +92,3 @@ Contributions are welcome! If you'd like to contribute to this project, please f
 
 This project is licensed under the MIT License. See the [LICENSE](https://opensource.org/licenses/MIT) file for details.
 
-## Support
-
-For support, bug reports, or feature requests, please [open an issue](https://github.com/DorianKue/dice-roll-bot/issues) on GitHub.

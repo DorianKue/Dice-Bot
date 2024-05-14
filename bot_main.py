@@ -428,9 +428,12 @@ async def random_roll(ctx: discord.Interaction, *, character_name: str):
             await bot.wait_for(
                 "interaction",
                 timeout=120,
-                check=lambda interaction: (interaction.type == discord.InteractionType.component and ctx.message == random_char_msg
-                and interaction.user == ctx.author,
-            ))
+                check=lambda interaction: (
+                    interaction.type == discord.InteractionType.component
+                    and ctx.message == random_char_msg
+                    and interaction.user == ctx.author,
+                ),
+            )
         except asyncio.TimeoutError:
             # Handle timeout by disabling buttons and updating the message content
             await randomview.on_timeout()
@@ -959,21 +962,6 @@ async def coinflip(ctx):
             1.45
         )  # Wait for the gif to loop roughly once before displaying the result
         await ctx.channel.send(f"{coin}!")
-    except Exception as e:
-        await ctx.send(f"An error occurred: {e}")
-
-
-@bot.hybrid_command(name="wrist", description="Big sad :(")
-async def wrist(ctx):
-    """
-    Joke command because after i mentioned "slash" commands to a friend, he suggested to make a command called wrist because slash wrist lol.
-
-    Parameters:
-        ctx (discord.Context): The context object for the command.
-    """
-    try:
-        name = ctx.message.author.display_name
-        await ctx.send(f"R.I.P {name}")
     except Exception as e:
         await ctx.send(f"An error occurred: {e}")
 
