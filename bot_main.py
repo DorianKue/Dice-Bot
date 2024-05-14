@@ -5,6 +5,7 @@ from discord.ui import View
 import math
 from random import randint, choice
 from dotenv import load_dotenv
+import logging
 import os
 import csv
 import asyncio
@@ -54,6 +55,11 @@ async def get_custom_prefix(bot, message):
     return "/"
 
 
+def create_logs_directory():
+    logs_dir = "Bot/Dice-Bot/logs"
+    os.makedirs(logs_dir, exist_ok=True)
+
+
 def bot_setup():
     # Load environment variables from the .env file
     load_dotenv()
@@ -70,10 +76,14 @@ def bot_setup():
         help_command=None,  # Disable the default help command
         case_insensitive=True,  # Make commands case-insensitive
     )
-    return bot, TOKEN
+    create_logs_directory()
+    handler = logging.FileHandler(
+        filename="Bot/Dice-Bot/logs/discord.log", encoding="utf-8", mode="w"
+    )
+    return bot, TOKEN, handler
 
 
-bot, TOKEN = bot_setup()
+bot, TOKEN, handler = bot_setup()
 # Create an instance of the CustomHelpCommand class and pass the bot instance to it
 # This allows the custom help command to access bot-related functionality
 custom_help_command = CustomHelpCommand(bot)
@@ -93,8 +103,9 @@ async def get_character_creator_id(char_name, server_id):
     """
     # Construct directory path based on server ID
     server_dir = f"server_{server_id}"
+    saves_dir = os.path.join("resources", "saves", server_dir)
     # Construct the full file path
-    filepath = os.path.join(server_dir, f"{char_name.lower()}_stats.csv")
+    filepath = os.path.join(saves_dir, f"{char_name.lower()}_stats.csv")
 
     # Check if the character's stats file exists
     if not os.path.isfile(filepath):
@@ -407,8 +418,9 @@ async def random_roll(ctx: discord.Interaction, *, character_name: str):
         randomview = RandView(ctx, character_name, server_id, invoker_id)
 
         # Send a message with the UI for creating a character and await a response
-        random_char_msg = await ctx.send(
-            await randomview.create_char(), view=randomview
+        random_char_msg = await randomview.create_char()
+        full_msg = await ctx.send(
+            f"{random_char_msg}Would you like to save this character?", view=randomview
         )
 
         # Wait for a button click from the user, with a timeout of 120 seconds
@@ -513,10 +525,7 @@ async def lvl(
 
         # Check if the user is authorized to level up the character
         creator_id = await get_character_creator_id(name, ctx.guild.id)
-        if (
-            ctx.author.id != creator_id
-            and not ctx.author.guild_permissions.administrator
-        ):
+        if str(ctx.author.id) != str(creator_id):
             # Send an error message if the user is not authorized
             await ctx.send(
                 "You are not authorized to level up this character. :pleading_face: ",
@@ -584,24 +593,25 @@ async def lvl(
                             if isinstance(item, discord.ui.Button):
                                 item.style = discord.ButtonStyle.grey
                                 item.disabled = True
-                        # Edit the message to indicate the user's choice
-                        await interaction.response.edit_message(
-                            content="You chose to roll", view=hp_view
-                        )
-
                         # Dictionary defining the dice roll ranges for each D&D class
                         new_health_values = {}
                         # Retrieve the dice roll range for the character's class
                         roll_range = class_dice.get(dndclass)
                         # Generate a random roll within the roll range
                         roll = randint(*roll_range)
+                        # Edit the message to indicate the user's choice
+                        await interaction.response.edit_message(
+                            content=f"You chose to roll and rolled a {roll}",
+                            view=hp_view,
+                        )
                         # Calculate the new health by adding the roll and Constitution modifier
                         new_health = roll + const_modifier
-
-                        # Update the health value for each class
+                        # Update the health value
                         for row in stats:
-                            old_health = int(row["Health"])
-                            new_health_values[row["Class"]] = new_health + old_health
+                            if row["Class"] == dndclass:
+                                old_health = int(row["Health"])
+                                new_health_value = new_health + old_health
+                                row["Health"] = new_health_value
 
                         # Write the updated stats data back to the CSV file
                         with open(filepath, "w", newline="") as file:
@@ -643,7 +653,7 @@ async def lvl(
                                 ctx, name, ctx.guild.id
                             )
                             await hp_msg.edit(
-                                content=f"{stats_message}You chose to roll"
+                                content=f"{stats_message}You chose to roll and rolled a {roll}"
                             )
 
                     # Check if the user chose to take the average for HP
@@ -1094,4 +1104,4 @@ async def syncslash(ctx):
         await ctx.send("You must be the owner to use this command")
 
 
-bot.run(TOKEN)
+bot.run(TOKEN, log_handler=handler)
