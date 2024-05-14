@@ -426,11 +426,11 @@ async def random_roll(ctx: discord.Interaction, *, character_name: str):
         # Wait for a button click from the user, with a timeout of 120 seconds
         try:
             await bot.wait_for(
-                "button_click",
+                "interaction",
                 timeout=120,
-                check=lambda interaction: ctx.message == random_char_msg
+                check=lambda interaction: (interaction.type == discord.InteractionType.component and ctx.message == random_char_msg
                 and interaction.user == ctx.author,
-            )
+            ))
         except asyncio.TimeoutError:
             # Handle timeout by disabling buttons and updating the message content
             await randomview.on_timeout()
@@ -1096,7 +1096,7 @@ async def syncslash(ctx):
     if ctx.author.id == 150721477480546304:
         try:
             await bot.tree.sync()
-            await ctx.bot.tree.sync(guild=ctx.guild)
+            await ctx.bot.tree.sync()
             print("Synced")
         except discord.Forbidden:
             await ctx.send("Unexpected forbidden from application scope.")
